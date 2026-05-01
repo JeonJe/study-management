@@ -56,6 +56,7 @@ import {
   isProtectedOperatingUnitSlug,
   listOperatingUnits,
   normalizeOperatingUnitSlug,
+  operatingUnitDisplayName,
   setOperatingUnitAccessCode,
   updateOperatingUnit,
   verifyOperatingUnitAccessCode,
@@ -109,6 +110,12 @@ describe("operating-unit-store", () => {
     expect(normalizeOperatingUnitSlug("3%EA%B8%B0")).toBe("loop-pak-3");
     expect(normalizeOperatingUnitSlug("3기")).toBe("loop-pak-3");
     expect(normalizeOperatingUnitSlug("loop-pak-3")).toBe("loop-pak-3");
+  });
+
+  it("shows the default operating unit by display name instead of slug", () => {
+    expect(operatingUnitDisplayName("loop-pak-3")).toBe("3기");
+    expect(operatingUnitDisplayName("3기")).toBe("3기");
+    expect(operatingUnitDisplayName("loop-pak-4")).toBe("loop-pak-4");
   });
 
   it("protects legacy migration and current default operating unit slugs", () => {

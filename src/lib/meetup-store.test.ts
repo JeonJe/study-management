@@ -14,6 +14,7 @@ import {
   createRsvpsBulk,
   deleteMeeting,
   ensureSchema,
+  listRsvps,
   MAX_MEETING_CAPACITY,
   parseCapacityInput,
   promoteWaitlistedRsvp,
@@ -207,6 +208,16 @@ describe("meetup-store meeting password flows", () => {
     expect(params[1]).toEqual(["angel"]);
   });
 
+  it("treats legacy RSVP rows without status as confirmed in participant lists", async () => {
+    queryMock.mockResolvedValueOnce([]);
+
+    await listRsvps("meeting-1", "");
+
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("coalesce(status, 'confirmed') as status");
+    expect(params).toEqual(["meeting-1", ""]);
+  });
+
   it("locks the meeting and assigns waitlist status from confirmed capacity", async () => {
     queryMock.mockResolvedValueOnce([{ changedCount: 2 }]);
 
@@ -214,7 +225,7 @@ describe("meetup-store meeting password flows", () => {
 
     const [sql] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("for update");
-    expect(sql).toContain("where r.status = 'confirmed'");
+    expect(sql).toContain("where coalesce(r.status, 'confirmed') = 'confirmed'");
     expect(sql).toContain("with ordinality");
     expect(sql).not.toContain("row_number() over ()");
     expect(sql).toContain("insert into public.rsvps (id, meeting_id, name, role, status, note)");
@@ -229,7 +240,7 @@ describe("meetup-store meeting password flows", () => {
 
     const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("for update");
-    expect(sql).toContain("where r.status = 'confirmed'");
+    expect(sql).toContain("where coalesce(r.status, 'confirmed') = 'confirmed'");
     expect(sql).toContain("r.status = 'waitlist'");
     expect(sql).toContain("cc.count < ml.capacity");
     expect(sql).toContain("set status = 'confirmed'");

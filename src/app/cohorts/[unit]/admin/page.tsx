@@ -113,7 +113,6 @@ export default async function CohortAdminPage({
       title="관리자"
       summary="선택한 이름의 팀, 보고, 모임을 관리합니다."
       unitSlug={unit}
-      scopeLabel={unit}
     >
       {content}
     </RoleShell>

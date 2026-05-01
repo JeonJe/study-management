@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { logoutAction } from "@/app/actions";
 import { cohortAwarePath } from "@/lib/cohort-routes";
-import { DEFAULT_OPERATING_UNIT_NAME } from "@/lib/operating-unit-store";
+import { operatingUnitDisplayName } from "@/lib/operating-unit-store";
 import type { CSSProperties, ReactNode } from "react";
 
 type DashboardTab = "loopPak" | "study" | "afterparty" | "members" | "angel" | "admin";
@@ -43,6 +43,8 @@ export function DashboardHeader({
   unitSlug = "",
   extraActions,
 }: DashboardHeaderProps) {
+  const unitLabel = operatingUnitDisplayName(unitSlug);
+
   function tabHref(tab: { key: DashboardTab; href: string }): string {
     const href = cohortAwarePath(unitSlug, tab.href);
     if (!currentDate) return href;
@@ -92,10 +94,10 @@ export function DashboardHeader({
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-semibold"
                 style={{ color: "var(--ink-muted)" }}
-                aria-label={`현재 항목 ${DEFAULT_OPERATING_UNIT_NAME}`}
+                aria-label={`현재 항목 ${unitLabel}`}
               >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} aria-hidden="true" />
-                {DEFAULT_OPERATING_UNIT_NAME}
+                {unitLabel}
               </span>
               <nav className="flex flex-wrap items-center gap-1 rounded-xl border p-1" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
                 {TAB_ITEMS.map((tab) => (

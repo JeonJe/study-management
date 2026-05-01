@@ -6,7 +6,7 @@ import {
   type RolePageRole,
   listRolePages,
 } from "@/lib/role-page";
-import { DEFAULT_OPERATING_UNIT_NAME } from "@/lib/operating-unit-store";
+import { operatingUnitDisplayName } from "@/lib/operating-unit-store";
 
 type RoleShellProps = {
   activeRole: RolePageRole;
@@ -39,7 +39,7 @@ export function RoleShell({
   showRoleNav = true,
   children,
 }: RoleShellProps) {
-  const displayScope = scopeLabel ?? DEFAULT_OPERATING_UNIT_NAME;
+  const displayScope = scopeLabel ?? operatingUnitDisplayName(unitSlug);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-10">

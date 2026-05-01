@@ -458,9 +458,9 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
        m.capacity,
-       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
-       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
-       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed')::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where coalesce(m.operating_unit_slug, $1) = $1
@@ -487,9 +487,9 @@ export async function listMeetingsByKind(meetingKind: MeetingKind): Promise<Meet
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
        m.capacity,
-       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
-       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
-       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed')::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where coalesce(m.operating_unit_slug, $1) = $1
@@ -520,9 +520,9 @@ export async function listMeetingsByKindAndDate(
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
        m.capacity,
-       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
-       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
-       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed')::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where coalesce(m.operating_unit_slug, $1) = $1
@@ -550,9 +550,9 @@ export async function listMeetingsByDate(meetingDate: string): Promise<MeetingSu
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
        m.capacity,
-       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
-       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
-       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed')::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where m.meeting_date = $1
@@ -579,9 +579,9 @@ export async function getMeetingById(meetingId: string): Promise<MeetingSummary 
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
        m.capacity,
-       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
-       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
-       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where coalesce(r.status, 'confirmed') = 'confirmed')::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where m.id = $1
@@ -667,7 +667,7 @@ export async function listRsvps(
        meeting_id as "meetingId",
        name,
        role,
-       status,
+       coalesce(status, 'confirmed') as status,
        note,
        created_at::text as "createdAt"
      from public.rsvps
@@ -695,7 +695,7 @@ export async function listRsvpsForMeetings(
        meeting_id as "meetingId",
        name,
        role,
-       status,
+       coalesce(status, 'confirmed') as status,
        note,
        created_at::text as "createdAt"
      from public.rsvps
@@ -760,7 +760,7 @@ export async function createRsvpsBulk(
        select count(r.id)::int as count
        from public.rsvps r
        join meeting_lock ml on ml.id = r.meeting_id
-       where r.status = 'confirmed'
+       where coalesce(r.status, 'confirmed') = 'confirmed'
      ),
      incoming as (
        select
@@ -841,7 +841,7 @@ export async function promoteWaitlistedRsvp(
        select count(r.id)::int as count
        from public.rsvps r
        join meeting_lock ml on ml.id = r.meeting_id
-       where r.status = 'confirmed'
+       where coalesce(r.status, 'confirmed') = 'confirmed'
      ),
      promoted as (
        update public.rsvps r

@@ -17,6 +17,15 @@ export type OperatingUnit = {
   updatedAt: string;
 };
 
+export function operatingUnitDisplayName(unitSlug?: string, fallback?: string): string {
+  const normalizedSlug = normalizeOperatingUnitSlug(unitSlug ?? "");
+  if (!normalizedSlug || normalizedSlug === DEFAULT_OPERATING_UNIT_SLUG) {
+    return fallback?.trim() || DEFAULT_OPERATING_UNIT_NAME;
+  }
+
+  return fallback?.trim() || normalizedSlug;
+}
+
 let schemaReady = false;
 let schemaPromise: Promise<void> | null = null;
 
