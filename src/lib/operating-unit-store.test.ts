@@ -56,6 +56,20 @@ import {
   updateOperatingUnit,
 } from "@/lib/operating-unit-store";
 
+async function withSkipSchemaCheck(run: () => Promise<void>): Promise<void> {
+  const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
+  process.env.SKIP_SCHEMA_CHECK = "1";
+  try {
+    await run();
+  } finally {
+    if (prevSkipSchemaCheck === undefined) {
+      delete process.env.SKIP_SCHEMA_CHECK;
+    } else {
+      process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
+    }
+  }
+}
+
 describe("operating-unit-store", () => {
   beforeEach(() => {
     getCurrentRolePageRoleMock.mockReset();
@@ -105,9 +119,7 @@ describe("operating-unit-store", () => {
   });
 
   it("listOperatingUnits를 호출하면 DB 쿼리가 실행된다", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "3기",
@@ -127,52 +139,28 @@ describe("operating-unit-store", () => {
       expect(units[0].isDefault).toBe(true);
       const lastCall = queryMock.mock.calls.at(-1) as [string];
       expect(lastCall[0]).toContain("from public.operating_units");
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("listOperatingUnits가 빈 결과를 반환하면 빈 배열을 돌려준다", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([]);
       const units = await listOperatingUnits();
       expect(units).toEqual([]);
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("listOperatingUnits 쿼리에 is_default desc 정렬이 포함된다", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([]);
       await listOperatingUnits();
       const lastCall = queryMock.mock.calls.at(-1) as [string];
       expect(lastCall[0]).toContain("order by is_default desc");
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("creates a named operating unit without overwriting existing slugs", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "4기",
@@ -197,19 +185,11 @@ describe("operating-unit-store", () => {
       expect(sql).not.toContain("do update");
       expect(params[0]).toBe("4");
       expect(params[1]).toBe("4기");
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("createOperatingUnit rejects duplicate slugs instead of silently updating", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([]);
 
       await expect(
@@ -218,19 +198,11 @@ describe("operating-unit-store", () => {
           name: "4기",
         })
       ).rejects.toThrow("이미 존재하는 운영 단위 식별자입니다.");
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("gets one operating unit by normalized slug", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "cohort-4",
@@ -249,19 +221,11 @@ describe("operating-unit-store", () => {
       const [sql, params] = queryMock.mock.calls.at(-1) as [string, unknown[]];
       expect(sql).toContain("where slug = $1");
       expect(params).toEqual(["cohort-4"]);
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("updates operating unit name and description without changing default status", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "cohort-4",
@@ -286,21 +250,13 @@ describe("operating-unit-store", () => {
       expect(sql).not.toContain("set is_default");
       expect(sql).toContain("is_active = $4");
       expect(params).toEqual(["cohort-4", "4기", "수정됨", true]);
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it.each(["default", "3기"])(
     "keeps protected operating unit %s active even when update asks to disable it",
     async (slug) => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug,
@@ -321,20 +277,12 @@ describe("operating-unit-store", () => {
 
       const [, params] = queryMock.mock.calls.at(-1) as [string, unknown[]];
       expect(params).toEqual([slug, slug, "", true]);
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
     }
   );
 
   it("allows new data only for active operating units", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "cohort-4",
@@ -348,19 +296,11 @@ describe("operating-unit-store", () => {
       ]);
 
       await expect(assertOperatingUnitAcceptsNewData("cohort-4")).resolves.toBeUndefined();
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("blocks new data for inactive operating units", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
           slug: "cohort-4",
@@ -376,13 +316,7 @@ describe("operating-unit-store", () => {
       await expect(assertOperatingUnitAcceptsNewData("cohort-4")).rejects.toThrow(
         "비활성 운영 단위에는 새 데이터를 등록할 수 없습니다."
       );
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 
   it("createOperatingUnitAction requires the admin role password before mutation", async () => {
@@ -405,9 +339,7 @@ describe("operating-unit-store", () => {
   });
 
   it("updateOperatingUnitAction mutates when admin role password is valid", async () => {
-    const prevSkipSchemaCheck = process.env.SKIP_SCHEMA_CHECK;
-    process.env.SKIP_SCHEMA_CHECK = "1";
-    try {
+    await withSkipSchemaCheck(async () => {
       isAuthenticatedMock.mockResolvedValue(true);
       getCurrentRolePageRoleMock.mockResolvedValue("admin");
       verifyRolePagePasswordMock.mockReturnValue(true);
@@ -431,12 +363,6 @@ describe("operating-unit-store", () => {
         "redirect:/admin/operating-units/cohort-4/edit?unit=updated"
       );
       expect(revalidatePathMock).toHaveBeenCalledWith("/admin/operating-units");
-    } finally {
-      if (prevSkipSchemaCheck === undefined) {
-        delete process.env.SKIP_SCHEMA_CHECK;
-      } else {
-        process.env.SKIP_SCHEMA_CHECK = prevSkipSchemaCheck;
-      }
-    }
+    });
   });
 });
