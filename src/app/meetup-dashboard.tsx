@@ -132,10 +132,12 @@ async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[]> {
 
 function LoginScreen({
   authStatus,
+  adminAuthStatus,
   units,
   selectedUnitSlug,
 }: {
   authStatus: string;
+  adminAuthStatus: string;
   units: EntryOperatingUnit[];
   selectedUnitSlug: string;
 }) {
@@ -145,6 +147,10 @@ function LoginScreen({
       : authStatus === "required"
         ? "세션이 만료됐습니다."
         : "";
+  const adminAuthMessage =
+    adminAuthStatus === "invalid"
+      ? "관리자 코드가 맞지 않습니다."
+      : "";
   const selectedUnit =
     units.find((unit) => unit.slug === selectedUnitSlug) ?? units[0] ?? {
       slug: DEFAULT_OPERATING_UNIT_SLUG,
@@ -203,6 +209,7 @@ function LoginScreen({
         }
         .login-submit:hover { opacity: 0.9; }
         .login-submit:active { transform: scale(0.98); }
+        .admin-login-summary::-webkit-details-marker { display: none; }
       `}</style>
 
       <div
@@ -231,8 +238,9 @@ function LoginScreen({
 
         {/* 폼 */}
         <form action={loginAction} className="li li-d2" style={{ display: "grid", gap: "1.25rem" }}>
+          <input type="hidden" name="authScope" value="unit" />
           <section style={{ display: "grid", gap: "0.5rem" }}>
-            <p style={{
+            <label htmlFor="selectedUnit" style={{
               fontSize: "11px",
               fontWeight: 600,
               letterSpacing: "0.1em",
@@ -241,34 +249,22 @@ function LoginScreen({
               margin: 0,
             }}>
               기수
-            </p>
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              {units.map((unit) => {
-                const selected = unit.slug === selectedUnit.slug;
-                return (
-                  <Link
-                    key={unit.slug}
-                    href={`/?unit=${encodeURIComponent(unit.slug)}`}
-                    aria-current={selected ? "true" : undefined}
-                    className="btn-press rounded-xl border px-3 py-2 text-left text-sm font-semibold transition hover:opacity-85"
-                    style={{
-                      borderColor: selected ? "rgba(13, 127, 242, 0.35)" : "var(--line)",
-                      backgroundColor: selected ? "var(--accent-weak)" : "var(--surface)",
-                      color: selected ? "var(--accent-strong)" : "var(--ink-soft)",
-                    }}
-                  >
-                    <span>{unit.name}</span>
-                    {unit.description ? (
-                      <span className="mt-1 block text-xs font-medium" style={{ color: "var(--ink-muted)" }}>
-                        {unit.description}
-                      </span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </div>
+            </label>
+            <select
+              id="selectedUnit"
+              name="selectedUnit"
+              defaultValue={selectedUnit.slug}
+              className="login-field"
+              required
+            >
+              {units.map((unit) => (
+                <option key={unit.slug} value={unit.slug}>
+                  {unit.name}
+                  {unit.description ? ` - ${unit.description}` : ""}
+                </option>
+              ))}
+            </select>
           </section>
-          <input type="hidden" name="selectedUnit" value={selectedUnit.slug} />
           <div style={{ display: "grid", gap: "0.5rem" }}>
             <label htmlFor="password" style={{
               fontSize: "11px",
@@ -299,14 +295,45 @@ function LoginScreen({
           <button type="submit" className="login-submit">
             입장
           </button>
-          <Link
-            href="/admin"
-            className="text-center text-sm font-semibold underline decoration-1 underline-offset-4 transition hover:opacity-80"
-            style={{ color: "var(--ink-soft)" }}
+        </form>
+
+        <details
+          className="li li-d2"
+          open={Boolean(adminAuthMessage)}
+          style={{ marginTop: "1rem" }}
+        >
+          <summary
+            className="admin-login-summary cursor-pointer text-center text-sm font-semibold underline decoration-1 underline-offset-4 transition hover:opacity-80"
+            style={{ color: "var(--ink-soft)", listStyle: "none" }}
           >
             전체 관리자
-          </Link>
-        </form>
+          </summary>
+          <form action={loginAction} className="mt-4 grid gap-3">
+            <input type="hidden" name="authScope" value="admin" />
+            <input type="hidden" name="returnPath" value="/admin" />
+            <label htmlFor="adminPassword" className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
+              관리자 코드
+              <input
+                id="adminPassword"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="관리자 코드 입력"
+                className="login-field"
+                style={adminAuthMessage ? { borderColor: "var(--danger)" } : undefined}
+              />
+            </label>
+            {adminAuthMessage ? (
+              <p style={{ fontSize: "12px", color: "var(--danger)", margin: 0 }}>
+                {adminAuthMessage}
+              </p>
+            ) : null}
+            <button type="submit" className="login-submit">
+              관리자 입장
+            </button>
+          </form>
+        </details>
       </div>
     </main>
   );
@@ -754,6 +781,7 @@ export async function MeetupDashboard({
 }: MeetupDashboardProps) {
   const params = await searchParams;
   const authStatus = singleParam(params.auth);
+  const adminAuthStatus = singleParam(params.adminAuth);
   const requestDate = singleParam(params.date);
   const selectedUnitSlug = singleParam(params.unit);
 
@@ -763,6 +791,7 @@ export async function MeetupDashboard({
     return (
       <LoginScreen
         authStatus={authStatus}
+        adminAuthStatus={adminAuthStatus}
         units={units}
         selectedUnitSlug={selectedUnitSlug}
       />

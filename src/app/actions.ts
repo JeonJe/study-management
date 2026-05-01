@@ -290,13 +290,18 @@ async function requireAuthOrRedirect(): Promise<void> {
 export async function loginAction(formData: FormData): Promise<void> {
   const password = textFrom(formData, "password").trim();
   const selectedUnit = textFrom(formData, "selectedUnit").trim();
+  const authScope = textFrom(formData, "authScope").trim();
   const returnPath = safeReturnPath(formData);
   const success = await login(password);
   const loginParams = new URLSearchParams();
   if (selectedUnit) loginParams.set("unit", selectedUnit);
 
   if (!success) {
-    loginParams.set("auth", "invalid");
+    if (authScope === "admin") {
+      loginParams.set("adminAuth", "invalid");
+    } else {
+      loginParams.set("auth", "invalid");
+    }
     redirect(`/?${loginParams.toString()}`);
   }
 
