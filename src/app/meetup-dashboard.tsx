@@ -26,6 +26,7 @@ import {
 import type { MeetingKind } from "@/lib/meeting-kind";
 import {
   cachedListMeetingsByKind,
+  cachedListMeetingsByKindAndDate,
   cachedListRsvpsForMeetings,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
@@ -503,108 +504,124 @@ function CreateMeetingModal({
       </summary>
 
       <div
-        className="absolute bottom-18 right-0 w-[min(92vw,760px)] rounded-[1.75rem] border p-4 shadow-2xl backdrop-blur-md fade-in"
+        className="absolute bottom-18 right-0 max-h-[calc(100vh-8rem)] w-[min(calc(100vw-3rem),720px)] overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md fade-in"
         style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.95)" }}
       >
-        <p className="mb-3 text-sm font-semibold" style={{ color: "var(--ink)" }}>모임 만들기</p>
-        <form action={createMeetingAction} className="grid gap-3 md:grid-cols-12">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="text-base font-extrabold" style={{ color: "var(--ink)" }}>모임 만들기</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
+              기본 정보만 먼저 입력하고, 참여자는 상세 화면에서 관리합니다.
+            </p>
+          </div>
+          <span
+            className="rounded-full border px-2.5 py-1 text-xs font-semibold"
+            style={{ borderColor: "rgba(13, 127, 242, 0.2)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
+          >
+            {meetingKind === "loop-pak" ? "루프팩" : "스터디"}
+          </span>
+        </div>
+
+        <form action={createMeetingAction} className="grid gap-3">
           <input type="hidden" name="returnDate" value={selectedDate} />
           <input type="hidden" name="returnPath" value={returnPath} />
           <input type="hidden" name="meetingKind" value={meetingKind} />
 
           <section
-            className="grid gap-3 rounded-[1.25rem] border p-3 md:col-span-12 md:grid-cols-12"
-            style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.72)" }}
+            className="grid gap-3 rounded-xl border p-3 sm:grid-cols-6"
+            style={{ borderColor: "rgba(13, 127, 242, 0.18)", backgroundColor: "var(--accent-weak)" }}
           >
-            <label className="grid gap-1 text-sm md:col-span-8" style={{ color: "var(--ink-soft)" }}>
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">모임 이름</span>
               <input
                 name="title"
                 required
                 maxLength={80}
-                className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
-                placeholder="예: 강남 토요 스터디 A조 + B조"
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "rgba(13, 127, 242, 0.22)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
+                placeholder="예: 11주차 오프라인 수료식"
               />
             </label>
 
-            <label className="grid gap-1 text-sm md:col-span-4" style={{ color: "var(--ink-soft)" }}>
-              <span className="font-medium">비밀번호 (선택)</span>
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-medium">장소/주소</span>
               <input
-                name="meetingPassword"
-                type="password"
-                maxLength={80}
-                autoComplete="new-password"
-                className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
-                placeholder="비워두면 누구나 수정할 수 있어요"
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm md:col-span-12" style={{ color: "var(--ink-soft)" }}>
-              <span className="font-medium">방장</span>
-              <LeaderChipInput
-                name="leaders"
-                placeholder="방장 이름 입력"
+                name="location"
+                required
+                maxLength={160}
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "rgba(13, 127, 242, 0.22)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
+                placeholder="예: 모드라운지 학동점 / https://naver.me/..."
               />
             </label>
           </section>
 
           <section
-            className="grid gap-3 rounded-[1.25rem] border p-3 md:col-span-12 md:grid-cols-12"
-            style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.72)" }}
+            className="grid gap-3 rounded-xl border p-3 sm:grid-cols-6"
+            style={{ borderColor: "rgba(34, 197, 94, 0.2)", backgroundColor: "var(--success-bg)" }}
           >
-            <label className="grid gap-1 text-sm md:col-span-3" style={{ color: "var(--ink-soft)" }}>
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">날짜</span>
               <input
                 name="meetingDate"
                 type="date"
                 defaultValue={selectedDate}
                 required
-                className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "rgba(34, 197, 94, 0.25)", "--tw-ring-color": "var(--success)" } as React.CSSProperties}
               />
             </label>
 
-            <label className="grid gap-1 text-sm md:col-span-3" style={{ color: "var(--ink-soft)" }}>
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">시작 시간</span>
               <input
                 name="startTime"
                 type="time"
                 defaultValue="14:00"
                 required
-                className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm md:col-span-6" style={{ color: "var(--ink-soft)" }}>
-              <span className="font-medium">장소/주소</span>
-              <input
-                name="location"
-                required
-                maxLength={160}
-                className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
-                placeholder="예: 강남역 10번 출구 / https://map.naver.com/..."
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "rgba(34, 197, 94, 0.25)", "--tw-ring-color": "var(--success)" } as React.CSSProperties}
               />
             </label>
           </section>
 
-          <label className="grid gap-1 text-sm md:col-span-12" style={{ color: "var(--ink-soft)" }}>
-            <span className="font-medium">설명 (선택)</span>
-            <input
-              name="description"
-              maxLength={240}
-              className="h-10 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-              style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
-              placeholder="예: 팀별 진행 후 15:00 전체 정리"
-            />
-          </label>
+          <section
+            className="grid gap-3 rounded-xl border p-3 sm:grid-cols-6"
+            style={{ borderColor: "rgba(148, 163, 184, 0.35)", backgroundColor: "var(--surface-alt)" }}
+          >
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-medium">방장</span>
+              <LeaderChipInput name="leaders" placeholder="방장 이름 입력" />
+            </label>
+
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-medium">수정 비밀번호</span>
+              <input
+                name="meetingPassword"
+                type="password"
+                maxLength={80}
+                autoComplete="new-password"
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
+                placeholder="선택"
+              />
+            </label>
+
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-6" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-medium">설명 (선택)</span>
+              <input
+                name="description"
+                maxLength={240}
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as React.CSSProperties}
+                placeholder="예: 팀별 진행 후 15:00 전체 정리"
+              />
+            </label>
+          </section>
 
           <button
             type="submit"
-            className="btn-press h-10 rounded-full px-4 text-sm font-semibold text-white transition hover:opacity-90 md:col-span-12"
+            className="btn-press h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
             style={{ backgroundColor: "var(--accent)", boxShadow: "0 10px 20px rgba(13, 127, 242, 0.25)" }}
           >
             생성
@@ -962,19 +979,24 @@ export async function MeetupDashboard({
   let selectedDate = isIsoDate(requestDate) ? requestDate : todayIsoDate;
 
   try {
+    const hasRequestedDate = isIsoDate(requestDate);
     const [fetchedMeetings, memberPreset] = await Promise.all([
-      cachedListMeetingsByKind(meetingKind),
+      hasRequestedDate
+        ? cachedListMeetingsByKindAndDate(meetingKind, selectedDate)
+        : cachedListMeetingsByKind(meetingKind),
       cachedLoadMemberPreset(),
     ]);
     meetings = fetchedMeetings;
-    if (!isIsoDate(requestDate)) {
+    if (!hasRequestedDate) {
       selectedDate = pickNearestUpcomingIsoDate(
         meetings.map((meeting) => meeting.meetingDate),
         todayIsoDate
       );
     }
 
-    meetingsOnDate = meetings.filter((meeting) => meeting.meetingDate === selectedDate);
+    meetingsOnDate = hasRequestedDate
+      ? meetings
+      : meetings.filter((meeting) => meeting.meetingDate === selectedDate);
     rsvpsByMeeting = await cachedListRsvpsForMeetings(meetingsOnDate.map((meeting) => meeting.id), "");
 
     for (const group of memberPreset.teamGroups) {

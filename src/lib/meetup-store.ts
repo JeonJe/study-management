@@ -212,6 +212,15 @@ async function hasRsvpColumn(columnName: string): Promise<boolean> {
   return Boolean(row?.exists);
 }
 
+async function hasIndex(indexName: string): Promise<boolean> {
+  const [row] = await query<{ exists: boolean }>(
+    `select to_regclass($1)::text is not null as exists`,
+    [`public.${indexName}`]
+  );
+
+  return Boolean(row?.exists);
+}
+
 async function ensureMeetingLeadersColumn(): Promise<void> {
   const hasColumn = await hasMeetingColumn("leaders");
   if (hasColumn) return;
@@ -245,12 +254,16 @@ async function ensureMeetingKindColumn(): Promise<void> {
     );
   }
 
-  await query(
-    `update public.meetings
-     set meeting_kind = 'study'
-     where meeting_kind is null
-        or meeting_kind not in ('study', 'loop-pak')`
-  );
+  if (!hasColumn || runtimeMigrationsEnabled) {
+    await query(
+      `update public.meetings
+       set meeting_kind = 'study'
+       where meeting_kind is null
+          or meeting_kind not in ('study', 'loop-pak')`
+    );
+  }
+
+  if (await hasIndex("idx_meetings_kind_date")) return;
 
   await query(
     `create index if not exists idx_meetings_kind_date
@@ -281,6 +294,8 @@ async function ensureRsvpStatusColumn(): Promise<void> {
        add column if not exists status text not null default 'confirmed'`
     );
   }
+
+  if (hasColumn && !runtimeMigrationsEnabled) return;
 
   await query(
     `update public.rsvps
@@ -482,6 +497,40 @@ export async function listMeetingsByKind(meetingKind: MeetingKind): Promise<Meet
      group by m.id
      order by m.meeting_date desc, m.start_time desc, m.created_at desc`,
     [DEFAULT_OPERATING_UNIT_SLUG, normalizedKind]
+  );
+}
+
+export async function listMeetingsByKindAndDate(
+  meetingKind: MeetingKind,
+  meetingDate: string
+): Promise<MeetingSummary[]> {
+  await ensureSchema();
+  const normalizedKind = normalizeMeetingKind(meetingKind);
+
+  return query<MeetingSummary>(
+    `select
+       m.id,
+       coalesce(m.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
+       coalesce(m.meeting_kind, '${MEETING_KIND.study}') as "meetingKind",
+       m.title,
+       m.meeting_date::text as "meetingDate",
+       to_char(m.start_time, 'HH24:MI') as "startTime",
+       m.location,
+       m.description,
+       coalesce(m.leaders, '{}'::text[]) as leaders,
+       (m.password_hash is not null) as "hasPassword",
+       m.capacity,
+       count(r.id) filter (where r.status = 'confirmed' and r.role = 'student')::int as "studentCount",
+       count(r.id) filter (where r.status = 'confirmed' and r.role <> 'student')::int as "operationCount",
+       count(r.id) filter (where r.status = 'confirmed')::int as "totalCount"
+     from public.meetings m
+     left join public.rsvps r on r.meeting_id = m.id
+     where coalesce(m.operating_unit_slug, $1) = $1
+       and coalesce(m.meeting_kind, '${MEETING_KIND.study}') = $2
+       and m.meeting_date = $3
+     group by m.id
+     order by m.meeting_date desc, m.start_time desc, m.created_at desc`,
+    [DEFAULT_OPERATING_UNIT_SLUG, normalizedKind, meetingDate]
   );
 }
 
