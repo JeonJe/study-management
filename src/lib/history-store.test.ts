@@ -2,9 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { queryMock, unstableCacheMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
-  // unstable_cache(fn, keys, options) 시그니처 — 테스트에서 keys/options를 검증해야 하므로 가변 인자 형태로 선언
   unstableCacheMock: vi.fn(
-    (fn: () => unknown, _keys?: unknown[], _options?: unknown) => fn
+    (...args: [fn: () => unknown, keys?: unknown[], options?: unknown]) => args[0]
   ),
 }));
 
