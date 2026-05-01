@@ -26,6 +26,7 @@ import {
   PARTICIPANT_ROLE_META,
   PARTICIPANT_ROLE_ORDER,
 } from "@/lib/participant-role-utils";
+import { buildOfflineStudyShareText } from "@/lib/share-text";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -67,11 +68,6 @@ function normalizeLeaders(leaders?: string[] | null): string[] {
     .filter((leader): leader is string => typeof leader === "string")
     .map((leader) => leader.trim())
     .filter((leader) => leader.length > 0);
-}
-
-function formatLeaders(leaders?: string[] | null): string {
-  const normalized = normalizeLeaders(leaders);
-  return normalized.length > 0 ? normalized.join(", ") : "미지정";
 }
 
 function LeaderChips({ leaders }: { leaders?: string[] | null }) {
@@ -172,18 +168,6 @@ function LoginScreen({ authStatus }: { authStatus: string }) {
           borderRadius: "1.5rem",
         }}
       >
-        {/* 브랜드 */}
-        <p className="li" style={{
-          fontSize: "11px",
-          fontWeight: 800,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: "var(--accent-strong)",
-          margin: "0 0 1.25rem",
-        }}>
-          Saturday Meetup
-        </p>
-
         {/* 타이틀 */}
         <h1 className="li li-d1" style={{
           fontFamily: "var(--font-heading), sans-serif",
@@ -656,47 +640,6 @@ function MeetingCard({
   );
 }
 
-function buildOfflineStudyShareText({
-  selectedDate,
-  meetingsOnDate,
-  rsvpsByMeeting,
-  teamLabelByMemberName,
-}: {
-  selectedDate: string;
-  meetingsOnDate: MeetingSummary[];
-  rsvpsByMeeting: Record<string, RsvpRecord[]>;
-  teamLabelByMemberName: Map<string, string>;
-}): string {
-  const lines: string[] = [];
-  lines.push(`스터디 정리 (${selectedDate})`);
-  lines.push(`모임 ${meetingsOnDate.length}개`);
-  lines.push("");
-
-  for (const [index, meeting] of meetingsOnDate.entries()) {
-    const rsvps = rsvpsByMeeting[meeting.id] ?? [];
-
-    lines.push(`${index + 1}. ${meeting.title}`);
-    lines.push(`- 시간: ${formatStartTime(meeting.startTime)}`);
-    lines.push(`- 장소: ${meeting.location}`);
-    lines.push(`- 메모: ${meeting.description || "없음"}`);
-    lines.push(`- 방장: ${formatLeaders(meeting.leaders)}`);
-    lines.push(`- 인원: 총 ${meeting.totalCount}명 (멤버 ${meeting.studentCount}, 운영진 ${meeting.operationCount})`);
-    for (const role of PARTICIPANT_ROLE_ORDER) {
-      const roleMeta = PARTICIPANT_ROLE_META[role];
-      const namesByRole = sortRsvpsForRole(
-        rsvps.filter((row) => row.role === role),
-        role,
-        teamLabelByMemberName
-      )
-        .map((row) => withTeamLabel(row.name, teamLabelByMemberName));
-      lines.push(`- ${roleMeta.label}: ${namesByRole.length > 0 ? namesByRole.join(", ") : "없음"}`);
-    }
-    lines.push("");
-  }
-
-  return lines.join("\n").trim();
-}
-
 const STAT_CONFIG = [
   { label: "모임 수", suffix: "개", accent: "var(--accent)" },
   { label: "총 참여", suffix: "명", accent: "#0369a1" },
@@ -807,7 +750,7 @@ export default async function Home({ searchParams }: HomePageProps) {
       : "";
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-10">
       <DashboardHeader title="스터디" activeTab="study" currentDate={selectedDate} />
 
       <section className="card-static mb-5 p-4 sm:p-5 fade-in">
@@ -892,7 +835,7 @@ export default async function Home({ searchParams }: HomePageProps) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold" style={{ color: "var(--ink)" }}>참여 현황</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <OfflineStudyCopyTextButton textToCopy={shareText} />
+              <OfflineStudyCopyTextButton textToCopy={shareText} linkPath={`/?date=${encodeURIComponent(selectedDate)}`} />
               <OfflineStudyCaptureButton targetId="offline-study-cards-capture" />
             </div>
           </div>
