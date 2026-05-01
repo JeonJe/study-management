@@ -133,6 +133,7 @@ export function MemberAdminForm({
   const [newTeamMembers, setNewTeamMembers] = useState("");
   const initialRenderRef = useRef(true);
   const savingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
   const totalTeamMemberCount = useMemo(
     () => teams.reduce((sum, team) => sum + team.members.length, 0),
     [teams]
@@ -157,6 +158,7 @@ export function MemberAdminForm({
     }),
     [fixedAngels, teams, specialRoles]
   );
+  const latestPayloadRef = useRef(payload);
 
   const canAutoSave = useMemo(() => {
     if (payload.fixedAngels.length === 0) return false;
@@ -164,9 +166,17 @@ export function MemberAdminForm({
     return payload.teamGroups.every((team) => team.teamName.length > 0 && team.angels.length > 0);
   }, [payload]);
 
+  useEffect(() => {
+    latestPayloadRef.current = payload;
+  }, [payload]);
+
   const saveNow = useCallback(async () => {
-    if (savingRef.current) return;
+    if (savingRef.current) {
+      pendingSaveRef.current = true;
+      return;
+    }
     savingRef.current = true;
+    pendingSaveRef.current = false;
     setSaving(true);
     setSaveState("idle");
 
@@ -174,7 +184,7 @@ export function MemberAdminForm({
       const response = await fetch("/api/members/save", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(latestPayloadRef.current),
       });
       setSaveState(response.ok ? "saved" : "error");
     } catch {
@@ -182,8 +192,11 @@ export function MemberAdminForm({
     } finally {
       savingRef.current = false;
       setSaving(false);
+      if (pendingSaveRef.current) {
+        void saveNow();
+      }
     }
-  }, [payload]);
+  }, []);
 
   useEffect(() => {
     if (initialRenderRef.current) {
@@ -321,6 +334,8 @@ export function MemberAdminForm({
       [role]: prev[role].filter((name) => name !== member),
     }));
   }
+
+  const hasOperationNames = parseNames(operationInput).length > 0;
 
   return (
     <div className="mt-4 grid gap-5">
@@ -633,8 +648,14 @@ export function MemberAdminForm({
 
       {teamAddOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl border bg-white p-5 shadow-2xl" style={{ borderColor: "var(--line)" }}>
-            <h4 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-add-modal-title"
+            className="w-full max-w-lg rounded-2xl border bg-white p-5 shadow-2xl"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <h4 id="team-add-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               팀 추가
             </h4>
             <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
@@ -705,8 +726,14 @@ export function MemberAdminForm({
 
       {operationAddOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl" style={{ borderColor: "var(--line)" }}>
-            <h4 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="operation-add-modal-title"
+            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <h4 id="operation-add-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               운영진 추가
             </h4>
             <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
@@ -740,6 +767,7 @@ export function MemberAdminForm({
                   onChange={(event) => setOperationInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" || event.shiftKey) return;
+                    if (!hasOperationNames) return;
                     event.preventDefault();
                     addOperationMembers(activeOperationRole, operationInput);
                     setOperationInput("");
@@ -767,9 +795,15 @@ export function MemberAdminForm({
               </button>
               <button
                 type="button"
+                disabled={!hasOperationNames}
                 className="btn-press rounded-xl px-3 py-2 text-xs font-semibold"
-                style={{ backgroundColor: roleMeta(activeOperationRole).backgroundColor, color: roleMeta(activeOperationRole).textColor }}
+                style={{
+                  backgroundColor: roleMeta(activeOperationRole).backgroundColor,
+                  color: roleMeta(activeOperationRole).textColor,
+                  opacity: hasOperationNames ? 1 : 0.45,
+                }}
                 onClick={() => {
+                  if (!hasOperationNames) return;
                   addOperationMembers(activeOperationRole, operationInput);
                   setOperationInput("");
                   setOperationAddOpen(false);
@@ -784,8 +818,14 @@ export function MemberAdminForm({
 
       {pendingAngelManageIndex !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl" style={{ borderColor: "var(--line)" }}>
-            <h4 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-angel-modal-title"
+            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <h4 id="team-angel-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {teams[pendingAngelManageIndex]?.teamName || "팀"} 엔젤 관리
             </h4>
             <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
@@ -865,8 +905,14 @@ export function MemberAdminForm({
 
       {pendingMemberManageIndex !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl" style={{ borderColor: "var(--line)" }}>
-            <h4 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-member-modal-title"
+            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <h4 id="team-member-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {teams[pendingMemberManageIndex]?.teamName || "팀"} 멤버 추가
             </h4>
             <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
@@ -911,8 +957,14 @@ export function MemberAdminForm({
 
       {pendingDeleteIndex !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-sm rounded-2xl border bg-white p-5 shadow-2xl" style={{ borderColor: "var(--line)" }}>
-            <h4 className="text-base font-semibold" style={{ color: "var(--ink)" }}>팀 삭제 확인</h4>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-delete-modal-title"
+            className="w-full max-w-sm rounded-2xl border bg-white p-5 shadow-2xl"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <h4 id="team-delete-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>팀 삭제 확인</h4>
             <p className="mt-2 text-sm" style={{ color: "var(--ink-soft)" }}>
               `{teams[pendingDeleteIndex]?.teamName ?? "선택 팀"}`을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.
             </p>

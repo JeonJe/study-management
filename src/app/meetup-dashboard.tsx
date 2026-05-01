@@ -421,7 +421,13 @@ function LoginScreen({
   );
 }
 
-function UnitSelectionScreen({ units }: { units: EntryOperatingUnit[] }) {
+function UnitSelectionScreen({
+  units,
+  basePath,
+}: {
+  units: EntryOperatingUnit[];
+  basePath: "/" | "/loop-pak";
+}) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-10 sm:px-6 lg:px-8">
       <section className="w-full rounded-[1.5rem] border bg-white p-4 shadow-sm sm:p-6" style={{ borderColor: "var(--line)" }}>
@@ -451,7 +457,7 @@ function UnitSelectionScreen({ units }: { units: EntryOperatingUnit[] }) {
             {units.map((unit) => (
               <Link
                 key={unit.slug}
-                href={`/cohorts/${encodeURIComponent(unit.slug)}/loop-pak`}
+                href={cohortAwarePath(unit.slug, basePath)}
                 className="group flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm"
                 style={{ borderColor: "var(--line)" }}
               >
@@ -943,7 +949,7 @@ export async function MeetupDashboard({
 
   if (!selectedUnitSlug) {
     const units = await safeListEntryOperatingUnits();
-    return <UnitSelectionScreen units={units} />;
+    return <UnitSelectionScreen units={units} basePath={basePath} />;
   }
 
   let meetings: MeetingSummary[] = [];
@@ -987,7 +993,10 @@ export async function MeetupDashboard({
       }
     }
   } catch (error) {
-    console.error("Failed to load meetup dashboard", error);
+    console.error("Failed to load meetup dashboard", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      uiMessage: dataLoadErrorMessage(error),
+    });
     loadError = dataLoadErrorMessage(error);
   }
 
