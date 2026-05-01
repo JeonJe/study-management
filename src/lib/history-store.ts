@@ -64,18 +64,17 @@ export async function getTeamAttendanceByPeriod(
   const meetingIds = meetingRows.map((r) => r.id);
 
   // 팀별로 각 모임에 팀원이 1명이라도 참석했는지 집계
+  // r.meeting_id 자체가 LEFT JOIN 매치 여부를 그대로 표현하므로 m_rsvp 서브쿼리는 불필요
   const rows = await query<{ team: string; attended: string }>(
     `select
        t.team_name as team,
-       count(distinct m_rsvp.meeting_id)::text as attended
+       count(distinct r.meeting_id)::text as attended
      from public.member_teams t
      join public.member_team_members m on m.team_name = t.team_name
        and coalesce(m.operating_unit_slug, $2) = $2
      cross join unnest($1::uuid[]) as m_id
      left join public.rsvps r on r.meeting_id = m_id
        and lower(r.name) = lower(m.member_name)
-     left join (select id as meeting_id from public.meetings) m_rsvp
-       on m_rsvp.meeting_id = r.meeting_id
      where coalesce(t.operating_unit_slug, $2) = $2
      group by t.team_name
      order by t.team_name`,

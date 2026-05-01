@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryMock } = vi.hoisted(() => ({
+const { queryMock, unstableCacheMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
+  // unstable_cache(fn, keys, options) 시그니처 — 테스트에서 keys/options를 검증해야 하므로 가변 인자 형태로 선언
+  unstableCacheMock: vi.fn(
+    (fn: () => unknown, _keys?: unknown[], _options?: unknown) => fn
+  ),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -40,7 +44,7 @@ vi.mock("@/lib/member-store", () => ({
 }));
 
 vi.mock("next/cache", () => ({
-  unstable_cache: vi.fn((fn: () => unknown) => fn),
+  unstable_cache: unstableCacheMock,
 }));
 
 import {
@@ -48,17 +52,10 @@ import {
   getMemberAttendanceByPeriod,
 } from "@/lib/history-store";
 
-// cache 래퍼 export 존재 확인 (보너스: it() 카운트 외)
-import {
-  cachedGetTeamAttendanceByPeriod,
-  cachedGetMemberAttendanceByPeriod,
-} from "@/lib/cached-queries";
-void cachedGetTeamAttendanceByPeriod;
-void cachedGetMemberAttendanceByPeriod;
-
 describe("history-store", () => {
   beforeEach(() => {
     queryMock.mockReset();
+    unstableCacheMock.mockClear();
   });
 
   describe("getTeamAttendanceByPeriod", () => {
@@ -123,6 +120,26 @@ describe("history-store", () => {
       expect(teamA.attended).toBe(2);
       // rate = round(2/3 * 100) / 100 = 0.67
       expect(teamA.rate).toBe(0.67);
+    });
+
+    it("#4 operatingUnitSlug 분기 — 명시 인자 전달 시 두 쿼리 모두에 slug가 파라미터로 반영된다", async () => {
+      const customSlug = "4기";
+      const meetingId = "cccccccc-0000-0000-0000-000000000001";
+
+      // 1) meetings 쿼리 → 1건
+      queryMock.mockResolvedValueOnce([{ id: meetingId }]);
+      // 2) 팀별 attended 집계 쿼리 → 팀A 1회
+      queryMock.mockResolvedValueOnce([{ team: "팀A", attended: "1" }]);
+
+      await getTeamAttendanceByPeriod("2026-03-01", "2026-03-31", customSlug);
+
+      // meetings 쿼리: [start, end, operatingUnitSlug]
+      const meetingsParams = queryMock.mock.calls[0][1];
+      expect(meetingsParams[2]).toBe(customSlug);
+
+      // team-rsvp 쿼리: [meetingIds, operatingUnitSlug]
+      const teamParams = queryMock.mock.calls[1][1];
+      expect(teamParams[1]).toBe(customSlug);
     });
   });
 
@@ -195,6 +212,52 @@ describe("history-store", () => {
       const dave = result.find((r) => r.name === "dave")!;
       expect(dave.meetings).toBe(0);
       expect(dave.afterparties).toBe(1);
+    });
+  });
+
+  describe("cache 래퍼 (cached-queries)", () => {
+    it("cachedGetTeamAttendanceByPeriod — unstable_cache 키/태그가 입력에 따라 구성된다", async () => {
+      const { cachedGetTeamAttendanceByPeriod } = await import(
+        "@/lib/cached-queries"
+      );
+
+      // history-store는 정상 호출되어야 하므로 mock 응답 준비
+      queryMock.mockResolvedValueOnce([]);
+
+      await cachedGetTeamAttendanceByPeriod("2026-03-01", "2026-03-31", "4기");
+
+      // unstable_cache(fn, keys, options) 시그니처 검증
+      const lastCall =
+        unstableCacheMock.mock.calls[unstableCacheMock.mock.calls.length - 1];
+      expect(lastCall[1]).toEqual([
+        "getTeamAttendanceByPeriod",
+        "2026-03-01",
+        "2026-03-31",
+        "4기",
+      ]);
+      expect(lastCall[2]).toEqual({ tags: ["attendance"], revalidate: 300 });
+    });
+
+    it("cachedGetMemberAttendanceByPeriod — operatingUnitSlug 미전달 시 키 끝이 빈 문자열로 정규화된다", async () => {
+      const { cachedGetMemberAttendanceByPeriod } = await import(
+        "@/lib/cached-queries"
+      );
+
+      // 모임/뒷풀이 두 쿼리 모두 빈 응답
+      queryMock.mockResolvedValueOnce([]);
+      queryMock.mockResolvedValueOnce([]);
+
+      await cachedGetMemberAttendanceByPeriod("2026-03-01", "2026-03-31");
+
+      const lastCall =
+        unstableCacheMock.mock.calls[unstableCacheMock.mock.calls.length - 1];
+      expect(lastCall[1]).toEqual([
+        "getMemberAttendanceByPeriod",
+        "2026-03-01",
+        "2026-03-31",
+        "",
+      ]);
+      expect(lastCall[2]).toEqual({ tags: ["attendance"], revalidate: 300 });
     });
   });
 });
