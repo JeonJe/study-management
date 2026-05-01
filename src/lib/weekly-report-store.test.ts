@@ -117,8 +117,8 @@ describe("weekly report store", () => {
       prompt: " 팀 분위기 중심으로 작성 ",
     });
 
-    const insertCall = queryMock.mock.calls.find(([sql]: [string]) =>
-      sql.includes("insert into public.weekly_report_cycles")
+    const insertCall = queryMock.mock.calls.find((call) =>
+      String(call[0]).includes("insert into public.weekly_report_cycles")
     );
     expect(insertCall).toBeDefined();
     expect(insertCall?.[1]).toEqual([
@@ -141,8 +141,8 @@ describe("weekly report store", () => {
       summaryPrompt: " 참여 흐름을 적어주세요. ",
     });
 
-    const insertCall = queryMock.mock.calls.find(([sql]: [string]) =>
-      sql.includes("insert into public.weekly_report_templates")
+    const insertCall = queryMock.mock.calls.find((call) =>
+      String(call[0]).includes("insert into public.weekly_report_templates")
     );
     expect(insertCall).toBeDefined();
     expect(insertCall?.[1]).toEqual([
@@ -171,8 +171,8 @@ describe("weekly report store", () => {
       prompt: " 수정된 작성 기준 ",
     });
 
-    const updateCall = queryMock.mock.calls.find(([sql]: [string]) =>
-      sql.includes("update public.weekly_report_cycles")
+    const updateCall = queryMock.mock.calls.find((call) =>
+      String(call[0]).includes("update public.weekly_report_cycles")
     );
     expect(updateCall).toBeDefined();
     expect(updateCall?.[1]).toEqual([
@@ -198,8 +198,8 @@ describe("weekly report store", () => {
       actionItems: "",
     });
 
-    const insertCall = queryMock.mock.calls.find(([sql]: [string]) =>
-      sql.includes("insert into public.angel_weekly_reports")
+    const insertCall = queryMock.mock.calls.find((call) =>
+      String(call[0]).includes("insert into public.angel_weekly_reports")
     );
     expect(insertCall).toBeDefined();
     expect(insertCall?.[1]).toEqual([
