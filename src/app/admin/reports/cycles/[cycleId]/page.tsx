@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OfflineStudyCopyTextButton } from "@/app/offline-study-copy-text-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -18,6 +19,7 @@ import {
   getConfiguredRolePages,
   getCurrentRolePageRole,
 } from "@/lib/role-session";
+import { buildCycleShareText } from "@/lib/weekly-report-share-text";
 import {
   type AngelWeeklyReport,
   type WeeklyReportCycle,
@@ -38,6 +40,7 @@ type AdminReportCycleDetailData = {
   template: WeeklyReportTemplate | null;
   teamGroups: TeamMemberGroup[];
   reports: AngelWeeklyReport[];
+  shareText: string;
   error: boolean;
 };
 
@@ -69,18 +72,20 @@ async function safeLoadCycleDetail(
       getWeeklyReportCycleById(cycleId),
       loadMemberPreset(),
     ]);
-    const [reports, template] = cycle
+    const [reports, template, shareText] = cycle
       ? await Promise.all([
           listAngelWeeklyReports(cycle.id),
           getWeeklyReportTemplateById(cycle.templateId),
+          buildCycleShareText(cycle.id),
         ])
-      : [[], null];
+      : [[], null, ""];
 
     return {
       cycle,
       template,
       teamGroups: preset.teamGroups,
       reports,
+      shareText,
       error: false,
     };
   } catch (error) {
@@ -90,6 +95,7 @@ async function safeLoadCycleDetail(
       template: null,
       teamGroups: [],
       reports: [],
+      shareText: "",
       error: true,
     };
   }
@@ -107,12 +113,14 @@ function CycleDetailPanel({
   template,
   teamGroups,
   reports,
+  shareText,
   loadError,
 }: {
   cycle: WeeklyReportCycle | null;
   template: WeeklyReportTemplate | null;
   teamGroups: TeamMemberGroup[];
   reports: AngelWeeklyReport[];
+  shareText: string;
   loadError: boolean;
 }) {
   if (loadError) {
@@ -187,6 +195,10 @@ function CycleDetailPanel({
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <OfflineStudyCopyTextButton textToCopy={shareText} />
         </div>
 
         <p className="mt-4 rounded-2xl border px-4 py-3 text-sm leading-6" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}>
@@ -298,6 +310,7 @@ export default async function AdminReportCycleDetailPage({
         template={data.template}
         teamGroups={data.teamGroups}
         reports={data.reports}
+        shareText={data.shareText}
         loadError={data.error}
       />
     );

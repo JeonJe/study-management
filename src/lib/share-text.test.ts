@@ -89,7 +89,6 @@ describe("share text builders", () => {
             participantCount: 1,
             settledCount: 0,
             createdAt: "2026-04-27",
-            updatedAt: "2026-04-27",
           },
         ],
       },

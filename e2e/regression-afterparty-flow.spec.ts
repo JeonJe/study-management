@@ -129,9 +129,11 @@ test.describe.serial("회귀: 뒷풀이 생성 → 참여 → 정산 → 삭제"
     await page.goto(afterpartyDetailUrl);
 
     // 참여자 이름 입력 → 추가
-    const participantForm = page.locator(
-      'form:has(input[name="names"][placeholder*="이름"])',
-    );
+    const participantForm = page
+      .locator("section")
+      .filter({ hasText: "참여자 관리" })
+      .locator('form:has(input[name="names"])')
+      .first();
     await participantForm
       .locator('input[name="names"]')
       .fill(TEST_PARTICIPANT);
