@@ -308,6 +308,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
     date: textFrom(formData, "returnDate"),
     keyword: textFrom(formData, "returnKeyword"),
   };
+  const returnPath = safeReturnPath(formData);
 
   await requireAuthOrRedirect();
 
@@ -320,7 +321,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
   const password = textFrom(formData, "meetingPassword").trim();
 
   if (!title || !meetingDate || !location) {
-    redirect(dashboardPath(state));
+    redirect(returnPath ?? dashboardPath(state));
   }
 
   // NOTE(SM-4A2): create 흐름의 capacity invalid 사용자 피드백은 dashboard manage 채널 도입 후 처리.
@@ -342,7 +343,8 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
 
   revalidateTag("meetup-data", { expire: 300 });
   revalidatePath("/");
-  redirect(dashboardPath({ date: created.meetingDate }));
+  revalidatePath("/loop-pak");
+  redirect(returnPath ?? dashboardPath({ date: created.meetingDate }));
 }
 
 export async function createRsvpAction(formData: FormData): Promise<void> {

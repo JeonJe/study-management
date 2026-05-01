@@ -1,8 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { logoutAction } from "@/app/actions";
 import type { CSSProperties, ReactNode } from "react";
 
-type DashboardTab = "study" | "afterparty" | "members";
+type DashboardTab = "loopPak" | "study" | "afterparty" | "members";
 
 type DashboardHeaderProps = {
   title: string;
@@ -12,7 +13,8 @@ type DashboardHeaderProps = {
 };
 
 const TAB_ITEMS: { key: DashboardTab; href: string; label: string }[] = [
-  { key: "study", href: "/", label: "스터디" },
+  { key: "loopPak", href: "/loop-pak", label: "루프팩" },
+  { key: "study", href: "/", label: "LOOP:PAK" },
   { key: "afterparty", href: "/afterparty", label: "뒷풀이" },
   { key: "members", href: "/members", label: "멤버" },
 ];
@@ -37,7 +39,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   function tabHref(tab: { key: DashboardTab; href: string }): string {
     if (!currentDate) return tab.href;
-    if (tab.key !== "study" && tab.key !== "afterparty") return tab.href;
+    if (tab.key !== "loopPak" && tab.key !== "study" && tab.key !== "afterparty") return tab.href;
     return `${tab.href}?date=${encodeURIComponent(currentDate)}`;
   }
 
@@ -53,13 +55,30 @@ export function DashboardHeader({
     >
       <div className="mx-auto w-full max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1
-              className="truncate text-2xl font-extrabold tracking-tight sm:text-[2rem]"
-              style={{ fontFamily: "var(--font-heading), sans-serif", color: "var(--ink)" }}
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
+              style={{ borderColor: "rgba(17, 24, 39, 0.18)", backgroundColor: "#050506" }}
             >
-              {title}
-            </h1>
+              <Image
+                src="/loopers-meetup-icon.svg"
+                alt="LOOPERS MEETUP"
+                width={44}
+                height={44}
+                priority
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--ink-muted)" }}>
+                LOOPERS MEETUP
+              </p>
+              <h1
+                className="truncate text-2xl font-extrabold tracking-tight sm:text-[2rem]"
+                style={{ fontFamily: "var(--font-heading), sans-serif", color: "var(--ink)" }}
+              >
+                {title}
+              </h1>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
