@@ -837,49 +837,72 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
             </div>
           </section>
 
-          <section className="mt-3 card-static w-full p-4 lg:mt-0 lg:min-h-0 lg:flex lg:flex-col">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>참여자 관리</h2>
-              <span className="text-xs font-semibold" style={{ color: "var(--accent)" }}>
-                {sortedParticipantRows.length}명
-              </span>
+          <section className="mt-3 card-static w-full overflow-hidden p-0 lg:mt-0 lg:min-h-0 lg:flex lg:flex-col">
+            <div
+              className="border-b px-4 py-4"
+              style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--accent-strong)" }}>
+                    RSVP
+                  </p>
+                  <h2 className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>참여자 관리</h2>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: "전체", value: sortedParticipantRows.length },
+                    { label: "멤버", value: meeting.studentCount },
+                    { label: "운영진", value: meeting.operationCount },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="min-w-14 rounded-xl border px-2.5 py-2"
+                      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
+                    >
+                      <p className="text-[10px] font-bold" style={{ color: "var(--ink-muted)" }}>{item.label}</p>
+                      <p className="mt-0.5 text-sm font-extrabold" style={{ color: "var(--ink)" }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div id="participant-manual-add" className="scroll-mt-24" />
+            <div id="participant-manual-add" className="scroll-mt-24 px-4 pt-4" />
             {manualParticipantFeedback ? (
-              <div className="mt-3">
+              <div className="px-4 pt-3">
                 <ParticipantFeedbackBanner feedback={manualParticipantFeedback} />
               </div>
             ) : null}
             <form
               action={bulkCreateRsvpsAction}
-              className="mt-3"
+              className="px-4 pt-3"
             >
               <input type="hidden" name="meetingId" value={meeting.id} />
               <input type="hidden" name="returnDate" value={date || meeting.meetingDate} />
               <input type="hidden" name="returnPath" value={manualReturnPath} />
               <input type="hidden" name="mutationSource" value="manual-add" />
-              <div
-                className="flex overflow-hidden rounded-md border bg-white"
-                style={{ borderColor: manualParticipantFeedback ? "#fda4af" : "var(--line)" }}
-              >
+              <label className="mb-2 block text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+                이름으로 추가
+              </label>
+              <div className="flex overflow-hidden rounded-xl border bg-white shadow-sm" style={{ borderColor: manualParticipantFeedback ? "#fda4af" : "var(--line)" }}>
                 <input
                   name="names"
                   defaultValue={manualParticipantDraft}
-                  className="h-11 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
+                  className="h-12 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
                   placeholder="예: 김민수 또는 김민수, 박서준"
                 />
                 <PendingSubmitButton
                   idleLabel="추가"
                   pendingLabel="추가중..."
-                  className="btn-press h-11 shrink-0 border-l px-4 text-sm font-semibold"
-                  style={{ borderColor: "var(--line)", color: "var(--accent)", backgroundColor: "var(--surface-alt)" }}
+                  className="btn-press h-12 shrink-0 border-l px-4 text-sm font-bold text-white"
+                  style={{ borderColor: "var(--accent)", backgroundColor: "var(--accent)" }}
                 />
               </div>
             </form>
-            <div className="mt-2 flex items-start gap-2 text-[11px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed" style={{ borderColor: "#bfdbfe", backgroundColor: "#eff6ff", color: "var(--ink-soft)" }}>
               <span
                 className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold leading-none"
-                style={{ borderColor: "#bfdbfe", backgroundColor: "#eff6ff", color: "#2563eb" }}
+                style={{ borderColor: "#93c5fd", backgroundColor: "white", color: "#2563eb" }}
                 aria-hidden="true"
               >
                 i
@@ -890,7 +913,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
             </div>
             {sortedParticipantRows.length > 0 ? (
               <div
-                className="mt-2 rounded-xl border p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+                className="m-4 rounded-2xl border p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
                 style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
               >
                 <div className="grid gap-3">
@@ -915,11 +938,11 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-xs" style={{ color: "var(--ink-muted)" }}>없음</p>
+              <p className="mx-4 mt-3 rounded-xl border px-3 py-4 text-center text-xs" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>아직 등록된 참여자가 없습니다.</p>
             )}
             {meeting.capacity !== null ? (
               <section
-                className="mt-3 rounded-xl border p-3"
+                className="mx-4 mb-4 rounded-xl border p-3"
                 style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
               >
                 <div className="flex items-center justify-between gap-2">
