@@ -46,8 +46,7 @@ const ADMIN_CARDS: AdminCard[] = [
   {
     title: "팀/멤버 히스토리",
     description: "기간별 참여 흐름 확인",
-    href: "/admin",
-    status: "준비 중",
+    href: "/admin/history",
   },
   {
     title: "오프라인 모임",
