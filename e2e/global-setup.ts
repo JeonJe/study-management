@@ -19,12 +19,12 @@ export default async function globalSetup() {
 
   await page.goto(`${BASE_URL}/?date=2026-03-01`);
 
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator("button.login-submit").click();
+  await page.getByLabel("입장 코드").fill(password);
+  await page.locator('form:has(input[name="authScope"][value="unit"]) button.login-submit').click();
 
   // 대시보드 로드 대기 (로그인 성공)
-  await page.waitForURL(/\/\?date=\d{4}-\d{2}-\d{2}/, { timeout: 15_000 });
-  await page.waitForSelector("text=참여율", { timeout: 15_000 });
+  await page.waitForURL(/\/cohorts\/[^/]+\/loop-pak/, { timeout: 15_000 });
+  await page.waitForSelector("text=모임 수", { timeout: 15_000 });
 
   await page.context().storageState({ path: AUTH_FILE });
   await browser.close();

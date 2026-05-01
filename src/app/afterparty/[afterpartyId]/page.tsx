@@ -335,7 +335,7 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
     settlements.find((item) => item.id === requestedSettlementId) ?? settlements[0] ?? null;
 
   if (!selectedSettlement) {
-    redirect(date ? `/afterparty?date=${date}` : "/afterparty");
+    redirect(cohortAwarePath(unitSlug, date ? `/afterparty?date=${date}` : "/afterparty"));
   }
 
   const participantFeedback = resolveParticipantFeedback(participantStatus, participantSource);
@@ -542,7 +542,7 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
     if (participantSearch) params.set("participantSearch", participantSearch);
     params.set("settlement", settlementId);
     const queryText = params.toString();
-    return `/afterparty/${afterpartyId}${queryText ? `?${queryText}` : ""}`;
+    return `${afterpartyBasePath}${queryText ? `?${queryText}` : ""}`;
   }
 
   return (

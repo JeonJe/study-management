@@ -5,6 +5,7 @@ import {
   getWeeklyReportCycleById,
   listAngelWeeklyReports,
 } from "@/lib/weekly-report-store";
+import { compareText } from "@/lib/sort-utils";
 
 type ReportWithCommentCount = AngelWeeklyReport & {
   commentCount: number;
@@ -60,7 +61,7 @@ export async function buildCycleShareText(cycleId: string): Promise<string> {
   const presetTeamNames = new Set(memberPreset.teamGroups.map((team) => team.teamName));
   const extraReports = reportsWithCommentCounts
     .filter((report) => !presetTeamNames.has(report.teamName))
-    .sort((a, b) => a.teamName.localeCompare(b.teamName, "ko"));
+    .sort((a, b) => compareText(a.teamName, b.teamName));
 
   const lines: string[] = [
     `[주간 보고] ${cycle.title}`,

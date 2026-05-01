@@ -123,7 +123,13 @@ function AfterpartyParticipantChip({ participant }: { participant: DecoratedAfte
   );
 }
 
-function CreateAfterpartyModal({ selectedDate }: { selectedDate: string }) {
+function CreateAfterpartyModal({
+  selectedDate,
+  returnPath,
+}: {
+  selectedDate: string;
+  returnPath: string;
+}) {
   return (
     <details className="fixed bottom-6 right-6 z-40">
       <summary
@@ -146,6 +152,7 @@ function CreateAfterpartyModal({ selectedDate }: { selectedDate: string }) {
 
         <form action={createAfterpartyAction} className="grid gap-3">
           <input type="hidden" name="returnDate" value={selectedDate} />
+          <input type="hidden" name="returnPath" value={returnPath} />
 
           <section
             className="grid gap-3 rounded-xl border p-3 sm:grid-cols-6"
@@ -599,7 +606,10 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
         </section>
       ) : null}
 
-      <CreateAfterpartyModal selectedDate={selectedDate} />
+      <CreateAfterpartyModal
+        selectedDate={selectedDate}
+        returnPath={`${afterpartyBasePath}?date=${encodeURIComponent(selectedDate)}`}
+      />
     </main>
   );
 }

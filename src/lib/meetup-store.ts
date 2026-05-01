@@ -329,6 +329,23 @@ async function ensureRsvpStatusColumn(): Promise<void> {
   );
 }
 
+async function ensureMeetupQueryIndexes(): Promise<void> {
+  await query(
+    `create index if not exists idx_meetings_unit_date
+     on public.meetings (operating_unit_slug, meeting_date desc, start_time desc)`
+  );
+
+  await query(
+    `create index if not exists idx_meetings_unit_kind_date
+     on public.meetings (operating_unit_slug, meeting_kind, meeting_date desc, start_time desc)`
+  );
+
+  await query(
+    `create index if not exists idx_rsvps_name_meeting
+     on public.rsvps (lower(name), meeting_id)`
+  );
+}
+
 export async function ensureSchema(): Promise<void> {
   if (schemaReady || process.env.SKIP_SCHEMA_CHECK === "1") return;
   if (schemaPromise) return schemaPromise;
@@ -343,6 +360,7 @@ export async function ensureSchema(): Promise<void> {
       await ensureMeetingOperatingUnitColumn();
       await ensureMeetingKindColumn();
       await ensureRsvpStatusColumn();
+      await ensureMeetupQueryIndexes();
       if (!runtimeMigrationsEnabled) {
         schemaReady = true;
         return;
@@ -433,6 +451,8 @@ export async function ensureSchema(): Promise<void> {
       `create index if not exists idx_rsvps_meeting_name
        on public.rsvps (meeting_id, lower(name))`
     );
+
+    await ensureMeetupQueryIndexes();
 
     schemaReady = true;
   })().finally(() => {

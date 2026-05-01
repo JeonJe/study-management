@@ -5,6 +5,7 @@ import {
   ensureOperatingUnitColumn,
   ensureOperatingUnitSchema,
 } from "@/lib/operating-unit-store";
+import { compareText } from "@/lib/sort-utils";
 
 export type TeamMemberEntry = {
   id: string;
@@ -103,7 +104,7 @@ function normalizeTeamGroups(groups: TeamMemberGroup[]): TeamMemberGroup[] {
       });
     }
 
-    memberEntries.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "ko"));
+    memberEntries.sort((a, b) => a.order - b.order || compareText(a.name, b.name));
     normalized.push({
       teamName,
       angels,
@@ -180,6 +181,7 @@ async function ensureMemberSchema(): Promise<void> {
     if (schemaExists && !runtimeMigrationsEnabled) {
       await ensureMemberOperatingUnitColumns();
       await ensureMemberIdentityColumns();
+      await ensureMemberQueryIndexes();
       schemaReady = true;
       return;
     }
@@ -265,6 +267,7 @@ async function ensureMemberSchema(): Promise<void> {
     );
 
     await ensureMemberOperatingUnitColumns();
+    await ensureMemberQueryIndexes();
 
     schemaReady = true;
   })().finally(() => {
@@ -279,6 +282,23 @@ async function ensureMemberOperatingUnitColumns(): Promise<void> {
   await ensureOperatingUnitColumn("member_team_members", "idx_member_team_members_operating_unit");
   await ensureOperatingUnitColumn("member_angels", "idx_member_angels_operating_unit");
   await ensureOperatingUnitColumn("member_special_roles", "idx_member_special_roles_operating_unit");
+}
+
+async function ensureMemberQueryIndexes(): Promise<void> {
+  await query(
+    `create index if not exists idx_member_teams_unit_order
+     on public.member_teams (operating_unit_slug, team_order asc, team_name asc)`
+  );
+
+  await query(
+    `create index if not exists idx_member_team_members_unit_team_order
+     on public.member_team_members (operating_unit_slug, team_name, member_order asc, member_name asc)`
+  );
+
+  await query(
+    `create index if not exists idx_member_team_members_unit_member
+     on public.member_team_members (operating_unit_slug, lower(member_name))`
+  );
 }
 
 async function hasMemberColumn(columnName: string): Promise<boolean> {

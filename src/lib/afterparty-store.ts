@@ -183,6 +183,18 @@ async function ensureAfterpartyOperatingUnitColumn(): Promise<void> {
   await ensureOperatingUnitColumn("afterparties", "idx_afterparties_operating_unit");
 }
 
+async function ensureAfterpartyQueryIndexes(): Promise<void> {
+  await query(
+    `create index if not exists idx_afterparties_unit_date
+     on public.afterparties (operating_unit_slug, event_date desc, start_time desc)`
+  );
+
+  await query(
+    `create index if not exists idx_afterparty_participants_name_afterparty
+     on public.afterparty_participants (lower(name), afterparty_id)`
+  );
+}
+
 export async function ensureAfterpartySchema(): Promise<void> {
   if (schemaReady || process.env.SKIP_SCHEMA_CHECK === "1") return;
   if (schemaPromise) return schemaPromise;
@@ -193,6 +205,7 @@ export async function ensureAfterpartySchema(): Promise<void> {
     if (schemaExists) {
       await ensureAfterpartyPasswordHashColumn();
       await ensureAfterpartyOperatingUnitColumn();
+      await ensureAfterpartyQueryIndexes();
       if (!runtimeMigrationsEnabled) {
         schemaReady = true;
         return;
@@ -347,6 +360,8 @@ export async function ensureAfterpartySchema(): Promise<void> {
       `create unique index if not exists idx_afterparty_participants_unique_name
        on public.afterparty_participants (afterparty_id, lower(name))`
     );
+
+    await ensureAfterpartyQueryIndexes();
 
     await query(
       `create table if not exists public.afterparty_settlements (

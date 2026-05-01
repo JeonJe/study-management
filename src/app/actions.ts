@@ -1,8 +1,12 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAuthenticated, login, logout } from "@/lib/auth";
+import {
+  revalidateAfterpartyData,
+  revalidateMeetupData,
+} from "@/lib/cache-invalidation";
 import { cohortScopedPath } from "@/lib/cohort-routes";
 import { normalizeMeetingKind } from "@/lib/meeting-kind";
 import { withSettlementInPath } from "@/lib/navigation-utils";
@@ -245,7 +249,7 @@ function revalidateMeetupViews(
   returnPath: string | null,
   options?: { skipDashboardPath?: boolean }
 ): void {
-  revalidateTag("meetup-data", { expire: 300 });
+  revalidateMeetupData();
   if (!options?.skipDashboardPath) {
     revalidatePath("/");
   }
@@ -268,7 +272,7 @@ function revalidateAfterpartyViews(
   returnPath: string | null,
   options?: { skipDashboardPath?: boolean }
 ): void {
-  revalidateTag("afterparty-data", { expire: 300 });
+  revalidateAfterpartyData();
   if (!options?.skipDashboardPath) {
     revalidatePath("/afterparty");
   }
@@ -362,8 +366,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
     meetingKind,
   });
 
-  revalidateTag("meetup-data", { expire: 300 });
-  revalidatePath("/");
+  revalidateMeetupViews(created.id, returnPath);
   revalidatePath("/loop-pak");
   redirect(returnPath ?? dashboardPath({ date: created.meetingDate }));
 }
@@ -399,6 +402,7 @@ export async function createAfterpartyAction(formData: FormData): Promise<void> 
   const state: DashboardState = {
     date: textFrom(formData, "returnDate"),
   };
+  const returnPath = safeReturnPath(formData);
 
   await requireAuthOrRedirect();
 
@@ -412,11 +416,11 @@ export async function createAfterpartyAction(formData: FormData): Promise<void> 
   const password = textFrom(formData, "afterpartyPassword").trim();
 
   if (!title || !eventDate || !location) {
-    redirect(afterpartyPath(state));
+    redirect(returnPath ?? afterpartyPath(state));
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
-    redirect(afterpartyPath(state));
+    redirect(returnPath ?? afterpartyPath(state));
   }
 
   const created = await createAfterparty({
@@ -430,9 +434,12 @@ export async function createAfterpartyAction(formData: FormData): Promise<void> 
     password,
   });
 
-  revalidateTag("afterparty-data", { expire: 300 });
-  revalidatePath("/afterparty");
-  redirect(afterpartyPath({ date: created.eventDate }));
+  revalidateAfterpartyViews(created.id, returnPath);
+  redirect(
+    returnPath
+      ? withUpdatedSearchParams(returnPath, { date: created.eventDate })
+      : afterpartyPath({ date: created.eventDate })
+  );
 }
 
 export async function bulkCreateAfterpartyParticipantsAction(formData: FormData): Promise<void> {
@@ -502,8 +509,7 @@ export async function deleteAfterpartyParticipantAction(formData: FormData): Pro
     await deleteAfterpartyParticipant(participantId, afterpartyId);
   }
 
-  revalidateTag("afterparty-data", { expire: 300 });
-  revalidatePath("/afterparty");
+  revalidateAfterpartyViews(afterpartyId, returnPath);
   redirect(returnPath ?? afterpartyPath({ date }));
 }
 
@@ -524,8 +530,7 @@ export async function updateSettlementAction(
       settlementId,
       isSettled
     );
-    revalidateTag("afterparty-data", { expire: 300 });
-    revalidatePath("/afterparty");
+    revalidateAfterpartyViews(afterpartyId, null);
     return { ok: true };
   } catch {
     return { ok: false };
@@ -553,8 +558,7 @@ export async function updateAfterpartyParticipantSettlementAction(formData: Form
     settledValue === "true"
   );
 
-  revalidateTag("afterparty-data", { expire: 300 });
-  revalidatePath("/afterparty");
+  revalidateAfterpartyViews(afterpartyId, returnPath);
   redirect(returnPath ?? afterpartyPath({ date }));
 }
 
@@ -579,8 +583,8 @@ export async function deleteAfterpartyAction(formData: FormData): Promise<void> 
     throw error;
   }
 
-  revalidateAfterpartyViews(afterpartyId, null);
-  redirect(afterpartyPath({ date }));
+  revalidateAfterpartyViews(afterpartyId, returnPath);
+  redirect(returnPath ?? afterpartyPath({ date }));
 }
 
 export async function updateAfterpartyAction(formData: FormData): Promise<void> {
@@ -910,8 +914,8 @@ export async function deleteMeetingAction(formData: FormData): Promise<void> {
     throw error;
   }
 
-  revalidateMeetupViews(meetingId, null);
-  redirect(dashboardPath({ date }));
+  revalidateMeetupViews(meetingId, returnPath);
+  redirect(returnPath ?? dashboardPath({ date }));
 }
 
 export async function updateRsvpAction(formData: FormData): Promise<void> {

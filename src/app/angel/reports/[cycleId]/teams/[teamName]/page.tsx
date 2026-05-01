@@ -83,12 +83,6 @@ function formatCommentDate(value: string): string {
   }).format(date);
 }
 
-function commentAuthorRoleLabel(comment: WeeklyReportComment): string {
-  if (comment.authorRole === "admin") return "관리자";
-  if (comment.authorRole === "leader") return "방장";
-  return "엔젤";
-}
-
 function commentInitial(name: string): string {
   return name.trim().slice(0, 1) || "?";
 }
@@ -451,9 +445,6 @@ function TeamReportForm({
                                 <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
                                   {comment.authorLabel}
                                 </p>
-                                <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold" style={{ backgroundColor: "var(--surface-alt)", color: "var(--ink-muted)" }}>
-                                  {commentAuthorRoleLabel(comment)}
-                                </span>
                                 {commentDate ? (
                                   <time className="text-xs" style={{ color: "var(--ink-muted)" }} dateTime={comment.createdAt}>
                                     {commentDate}

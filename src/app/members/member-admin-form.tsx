@@ -7,6 +7,8 @@ import type {
   TeamMemberEntry,
   TeamMemberGroup,
 } from "@/lib/member-store";
+import { saveMemberPresetAction } from "@/app/members/member-actions";
+import { MemberSaveToolbar } from "@/app/members/member-save-toolbar";
 import { PARTICIPANT_ROLE_META } from "@/lib/participant-role-utils";
 
 type MemberAdminFormProps = {
@@ -174,12 +176,8 @@ export function MemberAdminForm({
     setSaveState("idle");
 
     try {
-      const response = await fetch("/api/members/save", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setSaveState(response.ok ? "saved" : "error");
+      const result = await saveMemberPresetAction(payload);
+      setSaveState(result.ok ? "saved" : "error");
     } catch {
       setSaveState("error");
     } finally {
@@ -256,6 +254,7 @@ export function MemberAdminForm({
   function roleMeta(role: OperationRole): {
     label: string;
     emoji: string;
+    accentColor: string;
     borderColor: string;
     backgroundColor: string;
     textColor: string;
@@ -263,13 +262,28 @@ export function MemberAdminForm({
     if (role === "angel") {
       return {
         label: "엔젤",
-        emoji: "🪽",
-        borderColor: "var(--angel-border)",
-        backgroundColor: "var(--angel-bg)",
-        textColor: "var(--angel-text)",
+        emoji: "",
+        accentColor: "#2563eb",
+        borderColor: "var(--line)",
+        backgroundColor: "#f8fbff",
+        textColor: "var(--ink-soft)",
       };
     }
-    return PARTICIPANT_ROLE_META[role];
+    const meta = PARTICIPANT_ROLE_META[role];
+    const accentColorByRole: Record<SpecialParticipantRole, string> = {
+      mentor: "#7c3aed",
+      manager: "#0f766e",
+      supporter: "#2563eb",
+      buddy: "#15803d",
+    };
+    return {
+      ...meta,
+      emoji: "",
+      accentColor: accentColorByRole[role],
+      borderColor: "var(--line)",
+      backgroundColor: "#f8fbff",
+      textColor: "var(--ink-soft)",
+    };
   }
 
   function operationMembers(role: OperationRole): string[] {
@@ -371,9 +385,10 @@ export function MemberAdminForm({
                 return (
                   <span
                     key={`operations-role-summary-tab-${role}`}
-                    className="rounded-full border px-2 py-0.5 text-[11px] font-semibold"
-                    style={{ borderColor: meta.borderColor, backgroundColor: meta.backgroundColor, color: meta.textColor }}
+                    className="inline-flex items-center gap-1.5 rounded-full border bg-white px-2 py-0.5 text-[11px] font-semibold"
+                    style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
                   >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.accentColor }} aria-hidden="true" />
                     {meta.label} {operationMembers(role).length}명
                   </span>
                 );
@@ -406,27 +421,27 @@ export function MemberAdminForm({
               return (
                 <article
                   key={`operation-role-card-${role}`}
-                  className="overflow-hidden rounded-2xl border bg-white"
-                  style={{ borderColor: meta.borderColor }}
+                  className="overflow-hidden rounded-2xl border border-t-[3px] bg-white"
+                  style={{ borderColor: "var(--line)", borderTopColor: meta.accentColor }}
                 >
                   <div
                     className="flex items-center justify-between gap-2 border-b px-3 py-2"
-                    style={{ borderColor: meta.borderColor, backgroundColor: meta.backgroundColor }}
+                    style={{ borderColor: "var(--line)", backgroundColor: "#ffffff" }}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="text-sm" aria-hidden="true">{meta.emoji}</span>
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.accentColor }} aria-hidden="true" />
                       <p className="truncate text-sm font-extrabold" style={{ color: meta.textColor }}>
                         {meta.label}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold" style={{ color: meta.textColor }}>
+                      <span className="rounded-full border px-2 py-0.5 text-[11px] font-bold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
                         {members.length}명
                       </span>
                       <button
                         type="button"
-                        className="btn-press rounded-lg bg-white/80 px-2 py-0.5 text-[11px] font-bold"
-                        style={{ color: meta.textColor }}
+                        className="btn-press rounded-lg border px-2 py-0.5 text-[11px] font-bold"
+                        style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface)" }}
                         onClick={() => {
                           setActiveOperationRole(role);
                           setOperationAddOpen(true);
@@ -449,7 +464,7 @@ export function MemberAdminForm({
                             <div className="flex min-w-0 items-center gap-2">
                               <span
                                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
-                                style={{ backgroundColor: meta.backgroundColor, color: meta.textColor }}
+                                style={{ backgroundColor: "var(--surface-alt)", color: "var(--ink-muted)" }}
                               >
                                 {memberIndex + 1}
                               </span>
@@ -484,62 +499,18 @@ export function MemberAdminForm({
       </section>
 
       <section className="app-section order-1 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>멤버 명단</p>
-              <span
-                className="rounded-full border px-2 py-1 text-xs font-semibold"
-                style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}
-              >
-                {teams.length}팀 / {totalTeamMemberCount}명
-              </span>
-            </div>
-            <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
-              팀별 참석/뒷풀이 집계에 사용하는 기본 명단입니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn-press rounded-full border px-4 py-2 text-sm font-semibold transition"
-              style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
-              onClick={() => {
-                setNewTeamName(`${teams.length + 1}팀`);
-                setTeamAddOpen(true);
-              }}
-            >
-              팀 추가
-            </button>
-            <button
-              type="button"
-              disabled={!canSave || saving}
-              className="btn-press rounded-full px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "var(--accent)", boxShadow: "0 8px 20px rgba(13, 127, 242, 0.26)", opacity: canSave && !saving ? 1 : 0.45 }}
-              onClick={() => void saveNow()}
-            >
-              {saving ? "저장 중" : "저장"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold">
-          {!canSave ? (
-            <span className="rounded-full px-2 py-0.5" style={{ backgroundColor: "var(--angel-bg)", color: "var(--angel)" }}>
-              팀명/팀 엔젤 입력 필요
-            </span>
-          ) : null}
-          {saveState === "saved" ? (
-            <span className="rounded-full px-2 py-0.5" style={{ backgroundColor: "var(--success-bg)", color: "var(--success)" }}>
-              저장 완료
-            </span>
-          ) : null}
-          {saveState === "error" ? (
-            <span className="rounded-full px-2 py-0.5" style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
-              저장 실패
-            </span>
-          ) : null}
-        </div>
+        <MemberSaveToolbar
+          teamCount={teams.length}
+          memberCount={totalTeamMemberCount}
+          canSave={canSave}
+          saving={saving}
+          saveState={saveState}
+          onAddTeam={() => {
+            setNewTeamName(`${teams.length + 1}팀`);
+            setTeamAddOpen(true);
+          }}
+          onSave={() => void saveNow()}
+        />
 
         <div className="mt-3">
           {teams.length === 0 ? (
