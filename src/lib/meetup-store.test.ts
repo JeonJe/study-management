@@ -93,6 +93,7 @@ describe("meetup-store meeting password flows", () => {
         meetingDate: "2026-03-12",
         startTime: "14:00",
         location: "강남역",
+        capacity: null,
       })
     ).rejects.toMatchObject({ code: "password-required" });
 
@@ -116,6 +117,7 @@ describe("meetup-store meeting password flows", () => {
       location: "강남역",
       accessPassword: "current-secret",
       clearPassword: true,
+      capacity: null,
     });
 
     const [sql, params] = queryMock.mock.calls[1] as [string, unknown[]];
@@ -139,6 +141,7 @@ describe("meetup-store meeting password flows", () => {
       startTime: "14:00",
       location: "강남역",
       accessPassword: "갈!",
+      capacity: null,
     });
 
     expect(queryMock).toHaveBeenCalledTimes(2);
@@ -185,5 +188,181 @@ describe("meetup-store meeting password flows", () => {
     expect(sql).toContain("and i.role <> 'student'");
     expect(params[0]).toEqual(["이전제"]);
     expect(params[1]).toEqual(["angel"]);
+  });
+});
+
+describe("meetup-store capacity flows", () => {
+  beforeAll(async () => {
+    queryMock.mockImplementation(async (text: string) => {
+      if (text.includes("to_regclass('public.meetings')")) {
+        return [{ meetings: "public.meetings", rsvps: "public.rsvps" }];
+      }
+
+      if (text.includes("from information_schema.columns")) {
+        return [{ exists: true }];
+      }
+
+      return [];
+    });
+
+    await ensureSchema();
+    queryMock.mockReset();
+  });
+
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("stores capacity when creating a meeting with a capacity limit", async () => {
+    queryMock.mockResolvedValueOnce([
+      {
+        id: "meeting-cap",
+        title: "정원 있는 모임",
+        meetingDate: "2026-04-05",
+        startTime: "14:00",
+        location: "홍대",
+        description: null,
+        leaders: [],
+        hasPassword: false,
+        capacity: 30,
+        studentCount: 0,
+        operationCount: 0,
+        totalCount: 0,
+      },
+    ]);
+
+    const created = await createMeeting({
+      title: "정원 있는 모임",
+      meetingDate: "2026-04-05",
+      startTime: "14:00",
+      location: "홍대",
+      capacity: 30,
+    });
+
+    expect(created.capacity).toBe(30);
+
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("capacity");
+    expect(params[8]).toBe(30);
+  });
+
+  it("stores capacity of 0 as a valid boundary value", async () => {
+    queryMock.mockResolvedValueOnce([
+      {
+        id: "meeting-zero",
+        operatingUnitSlug: "default",
+        title: "정원 마감 모임",
+        meetingDate: "2026-04-05",
+        startTime: "14:00",
+        location: "홍대",
+        description: "",
+        leaders: [],
+        hasPassword: false,
+        capacity: 0,
+        studentCount: 0,
+        operationCount: 0,
+        totalCount: 0,
+      },
+    ]);
+
+    const created = await createMeeting({
+      title: "정원 마감 모임",
+      meetingDate: "2026-04-05",
+      startTime: "14:00",
+      location: "홍대",
+      capacity: 0,
+    });
+
+    expect(created.capacity).toBe(0);
+    const [, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(params[8]).toBe(0);
+  });
+
+  it("stores null capacity when creating a meeting without capacity", async () => {
+    queryMock.mockResolvedValueOnce([
+      {
+        id: "meeting-nocap",
+        title: "정원 없는 모임",
+        meetingDate: "2026-04-05",
+        startTime: "14:00",
+        location: "홍대",
+        description: null,
+        leaders: [],
+        hasPassword: false,
+        capacity: null,
+        studentCount: 0,
+        operationCount: 0,
+        totalCount: 0,
+      },
+    ]);
+
+    const created = await createMeeting({
+      title: "정원 없는 모임",
+      meetingDate: "2026-04-05",
+      startTime: "14:00",
+      location: "홍대",
+    });
+
+    expect(created.capacity).toBeNull();
+
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("capacity");
+    expect(params[8]).toBeNull();
+  });
+
+  it("updates capacity to a positive number", async () => {
+    queryMock
+      .mockResolvedValueOnce([{ passwordHash: null }])
+      .mockResolvedValueOnce([]);
+
+    await updateMeeting({
+      id: "meeting-1",
+      title: "토요 스터디",
+      meetingDate: "2026-03-12",
+      startTime: "14:00",
+      location: "강남역",
+      capacity: 50,
+    });
+
+    const [sql, params] = queryMock.mock.calls[1] as [string, unknown[]];
+    expect(sql).toContain("capacity = $9");
+    expect(params[8]).toBe(50);
+  });
+
+  it("clears capacity by setting it to null", async () => {
+    queryMock
+      .mockResolvedValueOnce([{ passwordHash: null }])
+      .mockResolvedValueOnce([]);
+
+    await updateMeeting({
+      id: "meeting-1",
+      title: "토요 스터디",
+      meetingDate: "2026-03-12",
+      startTime: "14:00",
+      location: "강남역",
+      capacity: null,
+    });
+
+    const [sql, params] = queryMock.mock.calls[1] as [string, unknown[]];
+    expect(sql).toContain("capacity = $9");
+    expect(params[8]).toBeNull();
+  });
+
+  it("preserves capacity when updating with the same value", async () => {
+    queryMock
+      .mockResolvedValueOnce([{ passwordHash: null }])
+      .mockResolvedValueOnce([]);
+
+    await updateMeeting({
+      id: "meeting-1",
+      title: "토요 스터디",
+      meetingDate: "2026-03-12",
+      startTime: "14:00",
+      location: "강남역",
+      capacity: 30,
+    });
+
+    const [, params] = queryMock.mock.calls[1] as [string, unknown[]];
+    expect(params[8]).toBe(30);
   });
 });

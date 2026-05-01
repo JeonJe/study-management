@@ -321,6 +321,15 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
     redirect(dashboardPath(state));
   }
 
+  const capacityRaw = textFrom(formData, "capacity").trim();
+  const capacity = capacityRaw === "" ? undefined : Number(capacityRaw);
+  const capacityValue =
+    capacity === undefined
+      ? undefined
+      : Number.isFinite(capacity) && Number.isInteger(capacity) && capacity >= 0 && capacity <= 10000
+        ? capacity
+        : undefined;
+
   const created = await createMeeting({
     title,
     meetingDate,
@@ -329,6 +338,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
     description,
     leaders,
     password,
+    capacity: capacityValue,
   });
 
   revalidateTag("meetup-data", { expire: 300 });
@@ -798,6 +808,14 @@ export async function updateMeetingAction(formData: FormData): Promise<void> {
   const accessPassword = textFrom(formData, "meetingPassword").trim();
   const nextPassword = textFrom(formData, "nextMeetingPassword").trim();
   const clearPassword = textFrom(formData, "clearMeetingPassword") === "true";
+  const capacityRaw = textFrom(formData, "capacity").trim();
+  const capacityParsed = capacityRaw === "" ? null : Number(capacityRaw);
+  const capacity =
+    capacityParsed === null
+      ? null
+      : Number.isFinite(capacityParsed) && Number.isInteger(capacityParsed) && capacityParsed >= 0 && capacityParsed <= 10000
+        ? capacityParsed
+        : null;
 
   if (!meetingId || !title || !meetingDate || !startTime || !location) {
     redirect(dashboardPath({ date, keyword }));
@@ -815,6 +833,7 @@ export async function updateMeetingAction(formData: FormData): Promise<void> {
       accessPassword,
       nextPassword,
       clearPassword,
+      capacity,
     });
   } catch (error) {
     if (isMeetingPasswordError(error)) {

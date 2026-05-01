@@ -25,6 +25,7 @@ export type MeetingSummary = {
   description: string | null;
   leaders: string[];
   hasPassword: boolean;
+  capacity: number | null;
   studentCount: number;
   operationCount: number;
   totalCount: number;
@@ -48,6 +49,7 @@ type CreateMeetingInput = {
   description?: string;
   leaders?: string[];
   password?: string;
+  capacity?: number;
 };
 
 type CreateRsvpInput = {
@@ -68,6 +70,7 @@ type UpdateMeetingInput = {
   accessPassword?: string;
   nextPassword?: string;
   clearPassword?: boolean;
+  capacity: number | null;
 };
 
 export class MeetingPasswordError extends Error {
@@ -172,6 +175,21 @@ async function ensureMeetingOperatingUnitColumn(): Promise<void> {
   await ensureOperatingUnitColumn("meetings", "idx_meetings_operating_unit");
 }
 
+/**
+ * meetings 테이블에 capacity 컬럼이 없으면 추가한다.
+ * NULL = 정원 없음, 0 이상의 정수 = 최대 참여 인원.
+ */
+async function ensureMeetingsCapacityColumn(): Promise<void> {
+  const hasColumn = await hasMeetingColumn("capacity");
+  if (hasColumn) return;
+
+  await query(
+    `alter table public.meetings
+     add column if not exists capacity integer
+     constraint chk_meetings_capacity check (capacity is null or capacity >= 0)`
+  );
+}
+
 export async function ensureSchema(): Promise<void> {
   if (schemaReady || process.env.SKIP_SCHEMA_CHECK === "1") return;
   if (schemaPromise) return schemaPromise;
@@ -182,6 +200,7 @@ export async function ensureSchema(): Promise<void> {
     if (schemaExists) {
       await ensureMeetingLeadersColumn();
       await ensureMeetingPasswordHashColumn();
+      await ensureMeetingsCapacityColumn();
       await ensureMeetingOperatingUnitColumn();
       if (!runtimeMigrationsEnabled) {
         schemaReady = true;
@@ -199,6 +218,8 @@ export async function ensureSchema(): Promise<void> {
         description text,
         leaders text[] not null default '{}'::text[],
         password_hash text,
+        capacity integer,
+        constraint chk_meetings_capacity check (capacity is null or capacity >= 0),
         operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
@@ -289,6 +310,7 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
        m.description,
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
+       m.capacity,
        count(r.id) filter (where r.role = 'student')::int as "studentCount",
        count(r.id) filter (where r.role <> 'student')::int as "operationCount",
        count(r.id)::int as "totalCount"
@@ -315,6 +337,7 @@ export async function listMeetingsByDate(meetingDate: string): Promise<MeetingSu
        m.description,
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
+       m.capacity,
        count(r.id) filter (where r.role = 'student')::int as "studentCount",
        count(r.id) filter (where r.role <> 'student')::int as "operationCount",
        count(r.id)::int as "totalCount"
@@ -342,6 +365,7 @@ export async function getMeetingById(meetingId: string): Promise<MeetingSummary 
        m.description,
        coalesce(m.leaders, '{}'::text[]) as leaders,
        (m.password_hash is not null) as "hasPassword",
+       m.capacity,
        count(r.id) filter (where r.role = 'student')::int as "studentCount",
        count(r.id) filter (where r.role <> 'student')::int as "operationCount",
        count(r.id)::int as "totalCount"
@@ -378,8 +402,8 @@ export async function createMeeting(input: CreateMeetingInput): Promise<MeetingS
   const passwordHash = password ? hashMeetingPassword(password) : null;
 
   const [created] = await query<MeetingSummary>(
-    `insert into public.meetings (id, title, meeting_date, start_time, location, description, leaders, password_hash, operating_unit_slug)
-     values ($1, $2, $3, $4, $5, nullif($6, ''), $7::text[], $8, $9)
+    `insert into public.meetings (id, title, meeting_date, start_time, location, description, leaders, password_hash, capacity, operating_unit_slug)
+     values ($1, $2, $3, $4, $5, nullif($6, ''), $7::text[], $8, $9, $10)
      returning
        id,
        coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
@@ -390,6 +414,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<MeetingS
        description,
        coalesce(leaders, '{}'::text[]) as leaders,
        (password_hash is not null) as "hasPassword",
+       capacity,
        0::int as "studentCount",
        0::int as "operationCount",
        0::int as "totalCount"`,
@@ -402,6 +427,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<MeetingS
       input.description?.trim() ?? "",
       leaders,
       passwordHash,
+      input.capacity ?? null,
       input.operatingUnitSlug?.trim() || DEFAULT_OPERATING_UNIT_SLUG,
     ]
   );
@@ -603,6 +629,7 @@ export async function updateMeeting(input: UpdateMeetingInput): Promise<void> {
          description = nullif($6, ''),
          leaders = $7::text[],
          password_hash = $8,
+         capacity = $9,
          updated_at = now()
      where id = $1`,
     [
@@ -614,6 +641,7 @@ export async function updateMeeting(input: UpdateMeetingInput): Promise<void> {
       input.description?.trim() ?? "",
       leaders,
       nextPasswordHash,
+      input.capacity,
     ]
   );
 }
