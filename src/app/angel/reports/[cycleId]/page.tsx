@@ -24,6 +24,7 @@ import {
   getWeeklyReportCycleById,
   listAngelWeeklyReports,
 } from "@/lib/weekly-report-store";
+import { cohortAwarePath } from "@/lib/cohort-routes";
 
 type AngelReportCyclePageProps = {
   params: Promise<{ cycleId: string }>;
@@ -94,15 +95,20 @@ function TeamReportCard({
   cycle,
   team,
   reports,
+  unitSlug,
 }: {
   cycle: WeeklyReportCycle;
   team: TeamMemberGroup;
   reports: AngelWeeklyReport[];
+  unitSlug: string;
 }) {
   const submitted = reports.length > 0;
   const latestReport = reports[0];
   const submittedAt = latestReport ? shortDateTime(latestReport.updatedAt) : "";
-  const teamReportPath = `/angel/reports/${cycle.id}/teams/${encodeURIComponent(team.teamName)}`;
+  const teamReportPath = cohortAwarePath(
+    unitSlug,
+    `/angel/reports/${cycle.id}/teams/${encodeURIComponent(team.teamName)}`
+  );
 
   return (
     <Link href={teamReportPath} className="card group block cursor-pointer p-5 sm:p-6">
@@ -164,12 +170,14 @@ function WeeklyReportAngelPanel({
   reports,
   submitted,
   loadError,
+  unitSlug,
 }: {
   cycle: WeeklyReportCycle | null;
   teamGroups: TeamMemberGroup[];
   reports: AngelWeeklyReport[];
   submitted: boolean;
   loadError: boolean;
+  unitSlug: string;
 }) {
   const submittedTeamCount = teamGroups.filter((team) =>
     reports.some((report) => report.teamName === team.teamName)
@@ -200,7 +208,7 @@ function WeeklyReportAngelPanel({
             </span>
           ) : null}
           <Link
-            href="/angel/reports"
+            href={cohortAwarePath(unitSlug, "/angel/reports")}
             className="rounded-full border px-3 py-1 text-sm font-bold"
             style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
           >
@@ -289,6 +297,7 @@ function WeeklyReportAngelPanel({
                   cycle={cycle}
                   team={team}
                   reports={reportsForTeam(reports, team.teamName)}
+                  unitSlug={unitSlug}
                 />
               ))
             )}
@@ -303,16 +312,18 @@ export default async function AngelReportCyclePage({
   params,
   searchParams,
 }: AngelReportCyclePageProps) {
+  const [routeParams, query] = await Promise.all([params, searchParams]);
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, routeParams, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-    searchParams,
-  ]);
+  const currentRole = await getCurrentRolePageRole();
   const page = getRolePage("angel");
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 
@@ -337,6 +348,7 @@ export default async function AngelReportCyclePage({
         reports={data.reports}
         submitted={singleParam(query.report) === "submitted"}
         loadError={data.error}
+        unitSlug={unitSlug}
       />
     );
   }
@@ -346,6 +358,7 @@ export default async function AngelReportCyclePage({
       activeRole="angel"
       title="주간 보고 작성"
       summary="선택한 주차의 팀별 보고를 작성합니다."
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

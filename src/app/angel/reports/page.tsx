@@ -18,6 +18,7 @@ import {
   type WeeklyReportCycle,
   listWeeklyReportCycles,
 } from "@/lib/weekly-report-store";
+import { cohortAwarePath } from "@/lib/cohort-routes";
 
 type AngelReportsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -52,9 +53,11 @@ async function safeListCycles(): Promise<{
 function ReportCycleList({
   cycles,
   loadError,
+  unitSlug,
 }: {
   cycles: WeeklyReportCycle[];
   loadError: boolean;
+  unitSlug: string;
 }) {
   return (
     <section className="grid gap-4">
@@ -79,7 +82,11 @@ function ReportCycleList({
       ) : (
         <section className="grid gap-4 md:grid-cols-2">
           {cycles.map((cycle) => (
-            <Link key={cycle.id} href={`/angel/reports/${cycle.id}`} className="card p-5">
+            <Link
+              key={cycle.id}
+              href={cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}`)}
+              className="card p-5"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
@@ -115,15 +122,18 @@ function ReportCycleList({
 }
 
 export default async function AngelReportsPage({ searchParams }: AngelReportsPageProps) {
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const currentRole = await getCurrentRolePageRole();
   const page = getRolePage("angel");
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 
@@ -140,7 +150,7 @@ export default async function AngelReportsPage({ searchParams }: AngelReportsPag
     );
   } else {
     const data = await safeListCycles();
-    content = <ReportCycleList cycles={data.cycles} loadError={data.error} />;
+    content = <ReportCycleList cycles={data.cycles} loadError={data.error} unitSlug={unitSlug} />;
   }
 
   return (
@@ -148,6 +158,7 @@ export default async function AngelReportsPage({ searchParams }: AngelReportsPag
       activeRole="angel"
       title="주간 보고"
       summary="작성할 주차를 선택합니다."
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

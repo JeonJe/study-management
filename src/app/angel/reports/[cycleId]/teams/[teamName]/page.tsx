@@ -416,18 +416,19 @@ export default async function AngelTeamReportPage({
   params,
   searchParams,
 }: AngelTeamReportPageProps) {
+  const [routeParams, query] = await Promise.all([params, searchParams]);
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, routeParams, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-    searchParams,
-  ]);
+  const currentRole = await getCurrentRolePageRole();
   const page = getRolePage("angel");
-  const unitSlug = singleParam(query.unit);
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
   const teamName = decodeTeamName(routeParams.teamName);
 

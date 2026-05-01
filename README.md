@@ -235,46 +235,6 @@ npm run quality:harness
 
 `RUN_E2E=1`을 주면 E2E까지 포함합니다.
 
-## 스크린샷
-
-샘플 스크린샷은 `docs/screenshots/`에 있습니다.
-
-### 스터디 대시보드
-
-![스터디 대시보드 샘플](docs/screenshots/study-dashboard-sample.png)
-
-### 스터디 상세
-
-![스터디 상세 샘플](docs/screenshots/study-detail-sample.png)
-
-### 뒷풀이 대시보드
-
-![뒷풀이 대시보드 샘플](docs/screenshots/afterparty-dashboard-sample.png)
-
-### 뒷풀이 상세
-
-![뒷풀이 상세 샘플](docs/screenshots/afterparty-detail-sample.png)
-
-### 멤버 관리
-
-![멤버 관리 샘플](docs/screenshots/members-sample.png)
-
-| 화면 | 파일 |
-|------|------|
-| 스터디 대시보드 | `docs/screenshots/study-dashboard-sample.png` |
-| 스터디 상세 | `docs/screenshots/study-detail-sample.png` |
-| 뒷풀이 대시보드 | `docs/screenshots/afterparty-dashboard-sample.png` |
-| 뒷풀이 상세 | `docs/screenshots/afterparty-detail-sample.png` |
-| 멤버 관리 | `docs/screenshots/members-sample.png` |
-
-스크린샷 갱신:
-
-```bash
-npm run docs:screenshots
-```
-
-가이드: [`docs/readme-screenshot-guide.md`](docs/readme-screenshot-guide.md)
-
 ## 운영 원칙
 
 - DB 변경 전에는 반드시 `npm run db:backup`을 실행합니다.

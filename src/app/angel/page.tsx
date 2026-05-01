@@ -33,12 +33,6 @@ const ANGEL_CARDS: AngelCard[] = [
     description: "담당 팀 상황 작성",
     href: "/angel/reports",
   },
-  {
-    title: "담당 팀 히스토리",
-    description: "기간별 참여 흐름 확인",
-    href: "/angel",
-    status: "준비 중",
-  },
 ];
 
 function singleParam(value: string | string[] | undefined): string {
@@ -86,17 +80,19 @@ function AngelHome({ unitSlug }: { unitSlug: string }) {
 }
 
 export default async function AngelPage({ searchParams }: AngelPageProps) {
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const currentRole = await getCurrentRolePageRole();
   const page = getRolePage("angel");
-  const unitSlug = singleParam(query.unit);
   const rolePath = cohortAwarePath(unitSlug, page.path);
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 
