@@ -62,7 +62,8 @@ function singleParam(value: string | string[] | undefined): string {
 
 function decodeTeamName(value: string): string {
   try {
-    return decodeURIComponent(value);
+    const decoded = decodeURIComponent(value);
+    return decoded === value ? decoded : decodeTeamName(decoded);
   } catch {
     return value;
   }
@@ -151,7 +152,7 @@ function TeamReportForm({
     template?.prompt || cycle.prompt || "팀 분위기, 참여 상황, 도움이 필요한 부분을 자유롭게 적어주세요.";
   const templateSections = template?.sections ?? DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS;
   const reportListPath = cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}`);
-  const returnPath = cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}/teams/${encodeURIComponent(team.teamName)}`);
+  const returnPath = cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}/teams/${team.teamName}`);
   const defaultAngelName =
     report?.angelName && team.angels.includes(report.angelName)
       ? report.angelName

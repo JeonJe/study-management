@@ -107,7 +107,7 @@ function TeamReportCard({
   const submittedAt = latestReport ? shortDateTime(latestReport.updatedAt) : "";
   const teamReportPath = cohortAwarePath(
     unitSlug,
-    `/angel/reports/${cycle.id}/teams/${encodeURIComponent(team.teamName)}`
+    `/angel/reports/${cycle.id}/teams/${team.teamName}`
   );
 
   return (
