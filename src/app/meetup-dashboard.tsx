@@ -430,18 +430,18 @@ function UnitSelectionScreen({
   basePath: "/" | "/loop-pak";
 }) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-10 sm:px-6 lg:px-8">
-      <section className="w-full rounded-[1.5rem] border bg-white p-4 shadow-sm sm:p-6" style={{ borderColor: "var(--line)" }}>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:px-8">
+      <section className="app-section w-full p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-4" style={{ borderColor: "var(--line)" }}>
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em]" style={{ color: "var(--ink-muted)" }}>
               LOOPERS MEETUP
             </p>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl" style={{ color: "var(--ink)" }}>
-              들어갈 목록을 선택하세요
+              운영 단위 선택
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              선택한 목록의 루프팩, 스터디, 뒷풀이, 멤버, 엔젤, 관리자 화면으로 이동합니다.
+              사용할 목록을 선택하면 루프팩, 스터디, 뒷풀이, 멤버, 엔젤, 관리자 화면으로 이동합니다.
             </p>
           </div>
           <Link
@@ -454,12 +454,12 @@ function UnitSelectionScreen({
         </div>
 
         <div className="mt-4 max-h-[62vh] overflow-y-auto pr-1">
-          <div className="grid gap-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {units.map((unit) => (
               <Link
                 key={unit.slug}
                 href={cohortAwarePath(unit.slug, basePath)}
-                className="group flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm"
+                className="group flex min-h-28 items-start justify-between gap-3 rounded-2xl border bg-white px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-sm"
                 style={{ borderColor: "var(--line)" }}
               >
                 <div className="min-w-0">
@@ -471,7 +471,7 @@ function UnitSelectionScreen({
                   </p>
                 </div>
                 <span
-                  className="shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition group-hover:border-transparent"
+                  className="mt-0.5 shrink-0 rounded-lg border px-3 py-1 text-xs font-bold transition group-hover:border-transparent"
                   style={{ borderColor: "rgba(13, 127, 242, 0.24)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
                 >
                   입장
@@ -504,8 +504,7 @@ function CreateMeetingModal({
       </summary>
 
       <div
-        className="absolute bottom-18 right-0 max-h-[calc(100vh-8rem)] w-[min(calc(100vw-3rem),720px)] overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md fade-in"
-        style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.95)" }}
+        className="modal-surface absolute bottom-18 right-0 max-h-[calc(100vh-8rem)] w-[min(calc(100vw-3rem),720px)] overflow-y-auto p-4 backdrop-blur-md fade-in"
       >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -643,8 +642,7 @@ function UsageGuideModal() {
       </summary>
 
       <div
-        className="absolute bottom-12 right-0 w-[min(92vw,420px)] rounded-[1.5rem] border p-4 shadow-2xl backdrop-blur-md fade-in"
-        style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.95)" }}
+        className="modal-surface absolute bottom-12 right-0 w-[min(92vw,420px)] p-4 backdrop-blur-md fade-in"
       >
         <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>사용 가이드</p>
         <ol className="mt-2 grid gap-1 text-xs" style={{ color: "var(--ink-soft)" }}>
@@ -1041,8 +1039,8 @@ export async function MeetupDashboard({
     <main className="mx-auto w-full max-w-6xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-10">
       <DashboardHeader title={title} activeTab={activeTab} currentDate={selectedDate} unitSlug={selectedUnitSlug} />
 
-      <section className="card-static mb-5 p-4 sm:p-5 fade-in">
-        <div className="rounded-xl border px-3 py-3 sm:px-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+      <section className="app-section mb-5 p-4 sm:p-5 fade-in">
+        <div className="section-toolbar px-3 py-3 sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">날짜</span>
@@ -1066,16 +1064,12 @@ export async function MeetupDashboard({
           </section>
         ) : (
           <>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--ink)" }}>요약</h2>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
+            <div className="stat-strip mt-4 stagger-children">
               {STAT_CONFIG.map((stat, index) => (
                 <div
                   key={stat.label}
-                  className="rounded-xl border p-3"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
+                  className="stat-item"
+                  style={{ borderLeftColor: stat.accent }}
                 >
                   <p className="text-xs" style={{ color: "var(--ink-soft)" }}>{stat.label}</p>
                   <p className="mt-1 text-lg font-semibold" style={{ color: "var(--ink)" }}>
@@ -1098,7 +1092,7 @@ export async function MeetupDashboard({
       </section>
 
       {!loadError && meetingsOnDate.length > 0 ? (
-        <section id={captureTargetId} className="card-static mb-5 p-4 sm:p-5 fade-in">
+        <section id={captureTargetId} className="app-section mb-5 p-4 sm:p-5 fade-in">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold" style={{ color: "var(--ink)" }}>참여 현황</h3>
             <div className="flex flex-wrap items-center gap-2">

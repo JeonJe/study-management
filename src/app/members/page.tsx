@@ -34,7 +34,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
         unitSlug={unitSlug}
       />
 
-      <section className="card-static p-5 sm:p-7 fade-in">
+      <section className="fade-in">
         <MemberAdminForm
           initialFixedAngels={preset.fixedAngels}
           initialTeamGroups={preset.teamGroups}

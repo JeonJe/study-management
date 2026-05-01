@@ -360,7 +360,7 @@ export function MemberAdminForm({
 
   return (
     <div className="mt-4 grid gap-5">
-      <section className="card-static order-2 p-5 sm:p-6">
+      <section className="app-section order-2 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>운영진</p>
@@ -398,7 +398,7 @@ export function MemberAdminForm({
           </div>
         </div>
 
-        <div className="mt-3 rounded-2xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+        <div className="list-surface mt-3 p-3">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {OPERATION_ROLE_ORDER.map((role) => {
               const meta = roleMeta(role);
@@ -483,7 +483,7 @@ export function MemberAdminForm({
         </div>
       </section>
 
-      <section className="card-static order-1 p-5 sm:p-6">
+      <section className="app-section order-1 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
@@ -551,39 +551,35 @@ export function MemberAdminForm({
               {teams.map((team, index) => (
                 <article key={team.id} className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: "var(--line)" }}>
                   <div
-                    className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"
                     style={{ borderColor: "var(--line)", backgroundColor: "#f8fbff" }}
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
-                        {team.teamName || "이름 없는 팀"}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
+                          {team.teamName || "이름 없는 팀"}
+                        </p>
+                        <span className="text-xs font-semibold" style={{ color: "var(--ink-muted)" }}>
+                          멤버 {team.members.length}명
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs" style={{ color: "var(--ink-soft)" }}>
+                        담당 엔젤 {team.angels.length > 0 ? team.angels.join(", ") : "미지정"}
                       </p>
-                      <span
-                        className="rounded-full border px-2 py-1 text-[11px] font-semibold"
-                        style={{ borderColor: "rgba(13, 127, 242, 0.18)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
-                      >
-                        엔젤 {team.angels.length}/2{team.angels.length > 0 ? ` · ${team.angels.join(", ")}` : ""}
-                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        className="btn-press h-9 rounded-xl border bg-white px-2 text-[11px] font-semibold"
+                        className="btn-press h-9 rounded-xl border bg-white px-3 text-xs font-semibold"
                         style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
                         onClick={() => openTeamEdit(index)}
                       >
                         팀 수정
                       </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="rounded-full border px-2 py-1 text-xs font-bold"
-                        style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}
-                      >
-                        {team.members.length}명
-                      </span>
                       <button
                         type="button"
-                        className="btn-press h-9 rounded-xl border bg-white px-2 text-[11px] font-semibold"
+                        className="btn-press h-9 rounded-xl border bg-white px-3 text-xs font-semibold"
                         style={{ borderColor: "#fecaca", color: "var(--danger)" }}
                         onClick={() => setPendingDeleteIndex(index)}
                       >
@@ -594,14 +590,16 @@ export function MemberAdminForm({
 
                   <div className="p-4">
                     <div
-                      className="rounded-2xl border p-2"
-                      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
+                      className="list-surface p-3"
                     >
-                      <div className="mb-2 flex justify-end">
-                      <button
-                        type="button"
-                        className="btn-press h-9 rounded-xl border px-3 text-xs font-semibold"
-                        style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>
+                          멤버
+                        </p>
+                        <button
+                          type="button"
+                          className="btn-press h-9 rounded-xl border px-3 text-xs font-semibold"
+                          style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
                           onClick={() => {
                             setMemberAddInput("");
                             setPendingMemberManageIndex(index);
@@ -611,12 +609,12 @@ export function MemberAdminForm({
                         </button>
                       </div>
                       {team.members.length > 0 ? (
-                        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <ul className="grid overflow-hidden rounded-xl border bg-white sm:grid-cols-2 lg:grid-cols-3" style={{ borderColor: "var(--line)" }}>
                           {team.members.map((member, memberIndex) => (
                             <li
                               key={member.id}
-                              className="flex min-h-11 items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2"
-                              style={{ borderColor: "rgba(226, 232, 240, 0.9)" }}
+                              className="flex min-h-11 items-center justify-between gap-3 border-b px-3 py-2 sm:border-r"
+                              style={{ borderColor: "var(--line)" }}
                             >
                               <div className="flex min-w-0 items-center gap-2">
                                 <span
@@ -671,8 +669,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-add-modal-title"
-            className="w-full max-w-lg rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-lg p-5"
           >
             <h4 id="team-add-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               팀 추가
@@ -749,8 +746,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="operation-add-modal-title"
-            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-md p-5"
           >
             <h4 id="operation-add-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               운영진 추가
@@ -841,8 +837,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-edit-modal-title"
-            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-md p-5"
           >
             <h4 id="team-edit-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               팀 수정
@@ -959,8 +954,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-member-modal-title"
-            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-md p-5"
           >
             <h4 id="team-member-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {teams[pendingMemberManageIndex]?.teamName || "팀"} 멤버 추가
@@ -1012,8 +1006,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="member-edit-modal-title"
-            className="w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-md p-5"
           >
             <h4 id="member-edit-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               멤버 수정
@@ -1076,8 +1069,7 @@ export function MemberAdminForm({
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-delete-modal-title"
-            className="w-full max-w-sm rounded-2xl border bg-white p-5 shadow-2xl"
-            style={{ borderColor: "var(--line)" }}
+            className="modal-surface w-full max-w-sm p-5"
           >
             <h4 id="team-delete-modal-title" className="text-base font-semibold" style={{ color: "var(--ink)" }}>팀 삭제 확인</h4>
             <p className="mt-2 text-sm" style={{ color: "var(--ink-soft)" }}>
