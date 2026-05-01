@@ -604,7 +604,7 @@ export async function listAfterparties(): Promise<AfterpartySummary[]> {
        where s.afterparty_id = a.id
      ) settlement_stats on true
      where coalesce(a.operating_unit_slug, $1) = $1
-     order by a.event_date desc, a.start_time desc, a.created_at desc`,
+     order by a.event_date desc, a.start_time asc, a.created_at asc`,
     [DEFAULT_OPERATING_UNIT_SLUG]
   );
 }
@@ -650,7 +650,7 @@ export async function listAfterpartiesByDate(
      ) settlement_stats on true
      where a.event_date = $1
        and coalesce(a.operating_unit_slug, $2) = $2
-     order by a.event_date desc, a.start_time desc, a.created_at desc`,
+     order by a.event_date desc, a.start_time asc, a.created_at asc`,
     [eventDate, DEFAULT_OPERATING_UNIT_SLUG]
   );
 }

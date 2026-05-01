@@ -9,12 +9,12 @@ import {
 import { isAuthenticated } from "@/lib/auth";
 import {
   MAX_MEETING_CAPACITY,
+  listRsvps,
   type ParticipantRole,
   type RsvpRecord,
 } from "@/lib/meetup-store";
 import {
   cachedGetMeetingById,
-  cachedListRsvpsForMeetings,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
 import { cohortAwarePath } from "@/lib/cohort-routes";
@@ -393,8 +393,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
     participantFeedback && participantSource === "quick" ? participantFeedback : null;
   const manualParticipantDraft = participantSource === "manual" ? participantDraft : "";
 
-  const rsvpsByMeeting = await cachedListRsvpsForMeetings([meetingId], "");
-  const rsvps = rsvpsByMeeting[meetingId] ?? [];
+  const rsvps = await listRsvps(meetingId, "");
   const teamLabelByName = new Map<string, string>();
   for (const group of memberPreset.teamGroups) {
     const teamLabel = toTeamLabel(group.teamName);
@@ -481,6 +480,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
     .filter((section) => section.rows.length > 0)
     .map((section) => ({
       key: `operation-${section.role}`,
+      role: section.role,
       label: PARTICIPANT_ROLE_META[section.role].label,
       rows: section.rows,
     }));
@@ -501,6 +501,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
     })
     .map(([label, rows]) => ({
       key: `team-${label}`,
+      role: "student" as const,
       label,
       rows,
     }));
@@ -844,26 +845,10 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--accent-strong)" }}>
-                    RSVP
+                  <h2 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>참여자 관리</h2>
+                  <p className="mt-1 text-xs font-semibold" style={{ color: "var(--ink-muted)" }}>
+                    이름을 입력하거나 오른쪽 목록에서 빠르게 추가합니다.
                   </p>
-                  <h2 className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>참여자 관리</h2>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {[
-                    { label: "전체", value: sortedParticipantRows.length },
-                    { label: "멤버", value: meeting.studentCount },
-                    { label: "운영진", value: meeting.operationCount },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="min-w-14 rounded-xl border px-2.5 py-2"
-                      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
-                    >
-                      <p className="text-[10px] font-bold" style={{ color: "var(--ink-muted)" }}>{item.label}</p>
-                      <p className="mt-0.5 text-sm font-extrabold" style={{ color: "var(--ink)" }}>{item.value}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
@@ -919,10 +904,23 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                 <div className="grid gap-3">
                   {participantSections.map((section) => (
                     <section key={section.key}>
-                      <p className="mb-1 text-[11px] font-semibold" style={{ color: "var(--ink-soft)" }}>
-                        {section.label}
-                      </p>
-                      <ul className="flex flex-wrap gap-1.5">
+                      <div
+                        className="mb-2 flex items-center justify-between gap-2 border-l-4 pl-2"
+                        style={{ borderColor: PARTICIPANT_ROLE_META[section.role].textColor }}
+                      >
+                        <h3
+                          className="text-xs font-extrabold"
+                          style={{
+                            color: PARTICIPANT_ROLE_META[section.role].textColor,
+                          }}
+                        >
+                          {section.label}
+                        </h3>
+                        <span className="text-[11px] font-bold" style={{ color: "var(--ink-muted)" }}>
+                          {section.rows.length}명
+                        </span>
+                      </div>
+                      <ul className="flex flex-wrap gap-2">
                         {section.rows.map((row) => (
                           <ParticipantChip
                             key={row.id}
