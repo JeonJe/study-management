@@ -33,12 +33,6 @@ const ANGEL_CARDS: AngelCard[] = [
     description: "담당 팀 상황 작성",
     href: "/angel/reports",
   },
-  {
-    title: "담당 팀 히스토리",
-    description: "기간별 참여 흐름 확인",
-    href: "/angel",
-    status: "준비 중",
-  },
 ];
 
 function singleParam(value: string | string[] | undefined): string {
