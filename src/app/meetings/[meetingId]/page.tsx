@@ -644,18 +644,44 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                   ) : null;
                 })()}
                 <section
-                  className="mt-3 rounded-xl border p-3"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
+                  className="relative mt-3 rotate-[-0.4deg] rounded-sm border p-4 shadow-sm"
+                  style={{
+                    borderColor: "#fde68a",
+                    backgroundColor: "#fef3c7",
+                    boxShadow: "0 10px 18px rgba(180, 83, 9, 0.12)",
+                  }}
                 >
-                  <p className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>메모</p>
-                  <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
+                  <span
+                    className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 -translate-y-1/2 rotate-1 rounded-sm"
+                    style={{ backgroundColor: "rgba(253, 186, 116, 0.42)" }}
+                    aria-hidden="true"
+                  />
+                  <p className="text-xs font-extrabold" style={{ color: "#92400e" }}>메모</p>
+                  <p className="mt-2 text-sm leading-6" style={{ color: "#78350f" }}>
                     {meeting.description || "등록된 메모가 없습니다."}
                   </p>
                 </section>
-                <p className="mt-2 text-sm" style={{ color: "var(--ink-muted)" }}>
-                  총 {meeting.totalCount}명 · 멤버 {meeting.studentCount}명 · 운영진 {meeting.operationCount}명
-                  {meeting.capacity !== null ? ` · 정원 ${meeting.capacity}명` : null}
-                </p>
+                <dl className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+                  {[
+                    { label: "총원", value: `${meeting.totalCount}명` },
+                    { label: "멤버", value: `${meeting.studentCount}명` },
+                    { label: "운영진", value: `${meeting.operationCount}명` },
+                    ...(meeting.capacity !== null ? [{ label: "정원", value: `${meeting.capacity}명` }] : []),
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-xl border px-3 py-2"
+                      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
+                    >
+                      <dt className="text-[11px] font-bold" style={{ color: "var(--ink-muted)" }}>
+                        {item.label}
+                      </dt>
+                      <dd className="mt-0.5 text-base font-extrabold" style={{ color: "var(--ink)" }}>
+                        {item.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
                 {waitlistSummary ? (
                   <p
                     className="mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-bold"

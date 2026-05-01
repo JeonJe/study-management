@@ -20,43 +20,28 @@ function displayLocationText(locationText: string, placeLink: string): string {
 function MapLinkCard({
   locationText,
   placeLink,
-  compact = false,
 }: {
   locationText: string;
   placeLink: string;
-  compact?: boolean;
 }) {
   const label = displayLocationText(locationText, placeLink);
 
   return (
-    <div
-      className={compact ? "mt-2 rounded-xl border p-3" : "mt-2 rounded-2xl border p-4"}
-      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-    >
+    <div className="mt-2 rounded-xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
-            장소
-          </p>
-          <p className="mt-1 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
-            {label}
-          </p>
-        </div>
+        <p className="min-w-0 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          {label}
+        </p>
         <a
           href={placeLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+          className="btn-press inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-3 text-sm font-bold"
           style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
         >
           지도 열기
         </a>
       </div>
-      {!compact ? (
-        <p className="mt-3 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
-          네이버 지도는 미리보기 안에 검색 패널이 함께 표시되어, 새 창에서 여는 방식으로 제공합니다.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -66,8 +51,6 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (provider === "naver") return;
-
     timerRef.current = setTimeout(() => {
       setStatus((prev) => (prev === "loading" ? "error" : prev));
     }, IFRAME_LOAD_TIMEOUT_MS);
@@ -78,10 +61,6 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
       }
     };
   }, [provider]);
-
-  if (provider === "naver") {
-    return <MapLinkCard locationText={locationText} placeLink={placeLink} />;
-  }
 
   function handleLoad() {
     if (timerRef.current !== null) {
@@ -98,14 +77,21 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
   }
 
   if (status === "error") {
-    return <MapLinkCard locationText={locationText} placeLink={placeLink} compact />;
+    return <MapLinkCard locationText={locationText} placeLink={placeLink} />;
   }
+
+  const isNaver = provider === "naver";
 
   return (
     <div className="mt-2 w-full">
       <div
         className="relative w-full overflow-hidden rounded-xl border"
-        style={{ aspectRatio: "4/3", minHeight: "240px", maxHeight: "320px", borderColor: "var(--line)" }}
+        style={{
+          aspectRatio: isNaver ? "16/9" : "4/3",
+          minHeight: isNaver ? "260px" : "240px",
+          maxHeight: isNaver ? "360px" : "320px",
+          borderColor: "var(--line)",
+        }}
       >
         {/* 로딩 중 placeholder */}
         {status === "loading" && (
@@ -121,8 +107,14 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
         <iframe
           src={embedUrl}
           title="지도 미리보기"
-          className="absolute inset-0 h-full w-full"
-          style={{ opacity: status === "loaded" ? 1 : 0 }}
+          className="absolute"
+          style={{
+            left: isNaver ? "-86px" : 0,
+            top: isNaver ? "-116px" : 0,
+            width: isNaver ? "calc(100% + 172px)" : "100%",
+            height: isNaver ? "calc(100% + 190px)" : "100%",
+            opacity: status === "loaded" ? 1 : 0,
+          }}
           sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
           loading="lazy"
