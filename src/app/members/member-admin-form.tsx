@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   SpecialParticipantRole,
   SpecialRoleDirectory,
+  TeamMemberEntry,
   TeamMemberGroup,
 } from "@/lib/member-store";
 import { PARTICIPANT_ROLE_META } from "@/lib/participant-role-utils";
@@ -19,7 +20,7 @@ type TeamDraft = {
   teamName: string;
   angels: string[];
   angelInput: string;
-  members: string[];
+  members: TeamMemberEntry[];
   memberInput: string;
 };
 
@@ -27,6 +28,13 @@ type OperationRole = "angel" | SpecialParticipantRole;
 
 function generateTeamId(): string {
   return `team-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function generateMemberId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `member-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function uniq(values: string[]): string[] {
@@ -43,6 +51,14 @@ function uniq(values: string[]): string[] {
 
 function parseNames(raw: string): string[] {
   return uniq(raw.split(/[\n,;]+/));
+}
+
+function createMemberEntries(names: string[]): TeamMemberEntry[] {
+  return names.map((name, order) => ({
+    id: generateMemberId(),
+    name,
+    order,
+  }));
 }
 
 const SPECIAL_PARTICIPANT_ROLES: SpecialParticipantRole[] = [
@@ -85,7 +101,14 @@ export function MemberAdminForm({
       teamName: team.teamName,
       angels: uniq(team.angels ?? []),
       angelInput: "",
-      members: uniq(team.members),
+      members:
+        team.memberEntries && team.memberEntries.length > 0
+          ? team.memberEntries.map((member, order) => ({
+              id: member.id || generateMemberId(),
+              name: member.name,
+              order,
+            }))
+          : createMemberEntries(uniq(team.members)),
       memberInput: "",
     }))
   );
@@ -121,7 +144,12 @@ export function MemberAdminForm({
       teamGroups: teams.map((team) => ({
         teamName: team.teamName.trim(),
         angels: uniq(team.angels).slice(0, 2),
-        members: uniq(team.members),
+        memberEntries: team.members.map((member, order) => ({
+          id: member.id,
+          name: member.name.trim(),
+          order,
+        })),
+        members: team.members.map((member) => member.name.trim()).filter(Boolean),
       })),
       specialRoles: Object.fromEntries(
         SPECIAL_PARTICIPANT_ROLES.map((role) => [role, uniq(specialRoles[role] ?? [])])
@@ -187,7 +215,7 @@ export function MemberAdminForm({
         teamName: input?.teamName?.trim() || `${prev.length + 1}팀`,
         angels: uniq(parseNames(input?.angels ?? "")).slice(0, 2),
         angelInput: "",
-        members: parseNames(input?.members ?? ""),
+        members: createMemberEntries(parseNames(input?.members ?? "")),
         memberInput: "",
       },
     ]);
@@ -211,7 +239,14 @@ export function MemberAdminForm({
 
     updateTeam(index, (team) => ({
       ...team,
-      members: uniq([...team.members, ...names]),
+      members: [
+        ...team.members,
+        ...names.map((name, offset) => ({
+          id: generateMemberId(),
+          name,
+          order: team.members.length + offset,
+        })),
+      ],
       memberInput: "",
     }));
   }
@@ -540,7 +575,7 @@ export function MemberAdminForm({
                         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {team.members.map((member, memberIndex) => (
                             <li
-                              key={`${team.teamName}-${member}`}
+                              key={member.id}
                               className="flex min-h-11 items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2"
                               style={{ borderColor: "rgba(226, 232, 240, 0.9)" }}
                             >
@@ -552,7 +587,7 @@ export function MemberAdminForm({
                                   {memberIndex + 1}
                                 </span>
                                 <span className="min-w-0 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
-                                  {member}
+                                  {member.name}
                                 </span>
                               </div>
                               <button
@@ -562,7 +597,7 @@ export function MemberAdminForm({
                                 onClick={() =>
                                   updateTeam(index, (prev) => ({
                                     ...prev,
-                                    members: prev.members.filter((name) => name !== member),
+                                    members: prev.members.filter((item) => item.id !== member.id),
                                   }))
                                 }
                               >
