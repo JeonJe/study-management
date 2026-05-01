@@ -1,11 +1,14 @@
 import { test, expect, chromium } from "@playwright/test";
-import path from "node:path";
+import {
+  AUTH_STATE,
+  CACHE_TEST_DATE,
+  cohortPath,
+  waitForCohortDateUrl,
+} from "./support/test-config";
 
-const TEST_DATE = "2026-03-01";
-const DASHBOARD = `/cohorts/loop-pak-3/study?date=${TEST_DATE}`;
-const AFTERPARTY_PAGE = `/cohorts/loop-pak-3/afterparty?date=${TEST_DATE}`;
-const MEMBERS_PAGE = "/cohorts/loop-pak-3/members";
-const AUTH_STATE = path.join(__dirname, ".auth", "state.json");
+const DASHBOARD = cohortPath("study", { date: CACHE_TEST_DATE });
+const AFTERPARTY_PAGE = cohortPath("afterparty", { date: CACHE_TEST_DATE });
+const MEMBERS_PAGE = cohortPath("members");
 
 // ---------- helpers ----------
 
@@ -17,7 +20,7 @@ async function deleteMeetingFromDetail(page: import("@playwright/test").Page) {
   await page
     .locator('[role="dialog"] button:has-text("이 모임 삭제")')
     .click();
-  await page.waitForURL(`**/cohorts/loop-pak-3/study?date=**`, { timeout: 10_000 });
+  await page.waitForURL(waitForCohortDateUrl("study"), { timeout: 10_000 });
 }
 
 /** 뒤풀이 상세 페이지에서 삭제 수행 */
@@ -30,7 +33,7 @@ async function deleteAfterpartyFromDetail(
   await page
     .locator('[role="dialog"] button:has-text("뒷풀이 삭제")')
     .click();
-  await page.waitForURL(`**/cohorts/loop-pak-3/afterparty?date=**`, {
+  await page.waitForURL(waitForCohortDateUrl("afterparty"), {
     timeout: 10_000,
   });
 }
@@ -122,7 +125,7 @@ test.describe.serial("캐시 정합성", () => {
     await fab.locator('button[type="submit"]:has-text("생성")').click();
 
     // 대시보드 리다이렉트 대기
-    await page.waitForURL(`**/cohorts/loop-pak-3/study?date=**`);
+    await page.waitForURL(waitForCohortDateUrl("study"));
 
     // 생성된 모임 확인
     await expect(
@@ -210,7 +213,7 @@ test.describe.serial("캐시 정합성", () => {
     await fab.locator('button[type="submit"]:has-text("생성")').click();
 
     // 리다이렉트 대기
-    await page.waitForURL(`**/cohorts/loop-pak-3/afterparty?date=**`);
+    await page.waitForURL(waitForCohortDateUrl("afterparty"));
 
     // 생성된 뒤풀이 확인
     await expect(
@@ -296,7 +299,7 @@ test.describe.serial("캐시 정합성", () => {
     await meetingFab
       .locator('button[type="submit"]:has-text("생성")')
       .click();
-    await page.waitForURL(`**/cohorts/loop-pak-3/study?date=**`);
+    await page.waitForURL(waitForCohortDateUrl("study"));
 
     const crossMeetingUrl =
       (await page
@@ -315,7 +318,7 @@ test.describe.serial("캐시 정합성", () => {
     await afterpartyFab
       .locator('button[type="submit"]:has-text("생성")')
       .click();
-    await page.waitForURL(`**/cohorts/loop-pak-3/afterparty?date=**`);
+    await page.waitForURL(waitForCohortDateUrl("afterparty"));
 
     const crossAfterpartyUrl =
       (await page

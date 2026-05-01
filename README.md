@@ -235,6 +235,15 @@ npm run quality:harness
 
 `RUN_E2E=1`을 주면 E2E까지 포함합니다.
 
+## 외부 인수인계 문서
+
+| 문서 | 용도 |
+|------|------|
+| `docs/architecture.md` | 디렉터리 책임, 요청 흐름, 주요 코드 진입점 |
+| `docs/development-guide.md` | 로컬 준비, 변경 종류별 시작점, 검증 게이트 |
+| `docs/testing-map.md` | 단위/E2E 테스트가 보호하는 영역과 실행 기준 |
+| `docs/external-handoff-maintainability-plan.md` | 외부 개발사 인수인계와 유지보수성 개선 장기 계획 |
+
 ## 운영 원칙
 
 - DB 변경 전에는 반드시 `npm run db:backup`을 실행합니다.

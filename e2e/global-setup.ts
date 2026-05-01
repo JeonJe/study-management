@@ -1,10 +1,7 @@
 import { chromium } from "@playwright/test";
-import path from "node:path";
 import fs from "node:fs";
-
-const AUTH_FILE = path.join(__dirname, ".auth", "state.json");
-const BASE_URL =
-  process.env.PLAYWRIGHT_BASE_URL ?? "https://offline-study-management.vercel.app";
+import path from "node:path";
+import { AUTH_STATE, BASE_URL, CACHE_TEST_DATE } from "./support/test-config";
 
 export default async function globalSetup() {
   const password = process.env.APP_PASSWORD;
@@ -12,12 +9,12 @@ export default async function globalSetup() {
     throw new Error("APP_PASSWORD 환경변수가 설정되지 않았습니다.");
   }
 
-  fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
+  fs.mkdirSync(path.dirname(AUTH_STATE), { recursive: true });
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
 
-  await page.goto(`${BASE_URL}/?date=2026-03-01`);
+  await page.goto(`${BASE_URL}/?date=${CACHE_TEST_DATE}`);
 
   await page.getByLabel("입장 코드").fill(password);
   await page.locator('form:has(input[name="authScope"][value="unit"]) button.login-submit').click();
@@ -26,6 +23,6 @@ export default async function globalSetup() {
   await page.waitForURL(/\/cohorts\/[^/]+\/loop-pak/, { timeout: 15_000 });
   await page.waitForSelector("text=모임 수", { timeout: 15_000 });
 
-  await page.context().storageState({ path: AUTH_FILE });
+  await page.context().storageState({ path: AUTH_STATE });
   await browser.close();
 }
