@@ -55,7 +55,7 @@ export function DashboardHeader({
   return (
     <>
       <header
-        className="fixed inset-x-0 top-0 z-40 border-b px-4 py-2 sm:px-6 lg:px-8"
+        className="fixed inset-x-0 top-0 z-40 border-b px-4 py-1.5 sm:px-6 lg:px-8"
         style={{
           backdropFilter: "blur(12px)",
           backgroundColor: "rgba(255, 255, 255, 0.97)",
@@ -63,17 +63,17 @@ export function DashboardHeader({
         }}
       >
         <div className="mx-auto w-full max-w-6xl">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="grid gap-1.5 sm:flex sm:items-center sm:justify-between sm:gap-2.5">
             <div className="flex min-w-0 items-center gap-2.5">
               <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-sm"
+                className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-sm"
                 style={{ borderColor: "rgba(17, 24, 39, 0.18)", backgroundColor: "#050506" }}
               >
                 <Image
                   src="/loopers-meetup-icon.svg"
                   alt="LOOPERS MEETUP"
-                  width={36}
-                  height={36}
+                  width={32}
+                  height={32}
                   priority
                 />
               </div>
@@ -82,7 +82,7 @@ export function DashboardHeader({
                   LOOPERS MEETUP
                 </p>
                 <h1
-                  className="truncate text-lg font-extrabold tracking-tight sm:text-xl"
+                  className="truncate text-base font-extrabold tracking-tight sm:text-lg"
                   style={{ fontFamily: "var(--font-heading), sans-serif", color: "var(--ink)" }}
                 >
                   {title}
@@ -90,7 +90,7 @@ export function DashboardHeader({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex min-w-0 items-center justify-between gap-1.5 sm:justify-end">
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-semibold"
                 style={{ color: "var(--ink-muted)" }}
@@ -99,13 +99,13 @@ export function DashboardHeader({
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} aria-hidden="true" />
                 {unitLabel}
               </span>
-              <nav className="flex flex-wrap items-center gap-1 rounded-xl border p-1" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
+              <nav className="hidden shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-0.5 sm:flex" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
                 {TAB_ITEMS.map((tab) => (
                   <Link
                     key={tab.key}
                     href={tabHref(tab)}
                     aria-current={activeTab === tab.key ? "page" : undefined}
-                    className="btn-press rounded-lg border px-2.5 py-1 text-xs font-semibold transition hover:opacity-85"
+                    className="btn-press rounded-md border px-2.5 py-1 text-xs font-semibold transition hover:opacity-85"
                     style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
                   >
                     {tab.label}
@@ -118,7 +118,7 @@ export function DashboardHeader({
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="btn-press rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-90"
+                  className="btn-press shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-semibold transition hover:opacity-90"
                   style={{
                     borderColor: "#fecaca",
                     color: "var(--danger)",
@@ -129,10 +129,24 @@ export function DashboardHeader({
                 </button>
               </form>
             </div>
+
+            <nav className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border p-0.5 sm:hidden" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
+              {TAB_ITEMS.map((tab) => (
+                <Link
+                  key={`mobile-${tab.key}`}
+                  href={tabHref(tab)}
+                  aria-current={activeTab === tab.key ? "page" : undefined}
+                  className="btn-press shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold transition hover:opacity-85"
+                  style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
       </header>
-      <div className="h-[88px] sm:h-[56px]" aria-hidden="true" />
+      <div className="h-[130px] sm:h-[50px]" aria-hidden="true" />
     </>
   );
 }
