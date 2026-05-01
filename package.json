@@ -8,8 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "quality:harness": "node scripts/quality-harness.mjs",
     "db:ping": "node scripts/db-ping.mjs",
-    "docs:screenshots": "node scripts/capture-readme-screenshots.mjs"
+    "db:backup": "node scripts/backup-db.mjs",
+    "docs:screenshots": "node scripts/capture-readme-screenshots.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.1.6",
