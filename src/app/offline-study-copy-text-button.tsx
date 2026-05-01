@@ -4,6 +4,7 @@ import { useState } from "react";
 
 type OfflineStudyCopyTextButtonProps = {
   textToCopy: string;
+  linkPath?: string;
 };
 
 type CopyState = "idle" | "copying" | "copied" | "failed";
@@ -30,7 +31,7 @@ async function writeTextToClipboard(text: string): Promise<void> {
   }
 }
 
-export function OfflineStudyCopyTextButton({ textToCopy }: OfflineStudyCopyTextButtonProps) {
+export function OfflineStudyCopyTextButton({ textToCopy, linkPath }: OfflineStudyCopyTextButtonProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
 
   async function handleCopy(): Promise<void> {
@@ -41,7 +42,10 @@ export function OfflineStudyCopyTextButton({ textToCopy }: OfflineStudyCopyTextB
 
     setCopyState("copying");
     try {
-      await writeTextToClipboard(textToCopy);
+      const shareText = linkPath
+        ? `${textToCopy.trim()}\n\n참여 링크: ${new URL(linkPath, window.location.origin).toString()}`
+        : textToCopy;
+      await writeTextToClipboard(shareText);
       setCopyState("copied");
       window.setTimeout(() => setCopyState("idle"), 1400);
     } catch {
@@ -58,7 +62,7 @@ export function OfflineStudyCopyTextButton({ textToCopy }: OfflineStudyCopyTextB
         ? "복사 완료"
         : copyState === "failed"
           ? "복사 실패"
-          : "텍스트 복사";
+          : "공유 문구 복사";
 
   return (
     <button
