@@ -7,10 +7,14 @@ import {
   createWeeklyReportCycle,
   createWeeklyReportTemplate,
   deleteWeeklyReportTemplate,
+  addComment,
+  listComments,
+  softDeleteComment,
   updateWeeklyReportTemplate,
   updateWeeklyReportCycle,
   upsertAngelWeeklyReport,
 } from "@/lib/weekly-report-store";
+import type { WeeklyReportCommentAuthorRole } from "@/lib/weekly-report-store";
 import { getCurrentRolePageRole } from "@/lib/role-session";
 import type { RolePageRole } from "@/lib/role-page";
 
@@ -173,4 +177,68 @@ export async function submitAngelWeeklyReportAction(formData: FormData): Promise
   revalidatePath("/admin");
   revalidatePath("/admin/reports");
   redirect(returnPath ? `${returnPath}?report=submitted` : `/angel/reports/${encodeURIComponent(cycleId)}?report=submitted`);
+}
+
+function commentAuthorRoleFromPageRole(
+  role: RolePageRole | null
+): WeeklyReportCommentAuthorRole {
+  return role === "admin" ? "admin" : "angel";
+}
+
+export async function addWeeklyReportCommentAction(formData: FormData): Promise<void> {
+  await requireRole(["angel", "admin"], "/angel?access=required");
+
+  const currentRole = await getCurrentRolePageRole();
+  const reportId = textFrom(formData, "reportId");
+  const returnPath = safeReturnPath(formData);
+  const authorRole = commentAuthorRoleFromPageRole(currentRole);
+  const authorLabel =
+    authorRole === "admin"
+      ? "관리자"
+      : textFrom(formData, "authorLabel");
+
+  await addComment({
+    reportId,
+    authorRole,
+    authorLabel,
+    body: textFrom(formData, "body"),
+  });
+
+  revalidatePath("/angel");
+  revalidatePath("/angel/reports");
+  revalidatePath(returnPath ?? "/angel/reports");
+  redirect(returnPath ? `${returnPath}?comment=created` : "/angel/reports?comment=created");
+}
+
+export async function deleteWeeklyReportCommentAction(formData: FormData): Promise<void> {
+  await requireRole(["angel", "admin"], "/angel?access=required");
+
+  const currentRole = await getCurrentRolePageRole();
+  const commentId = textFrom(formData, "commentId");
+  const reportId = textFrom(formData, "reportId");
+  const returnPath = safeReturnPath(formData);
+  const authorLabel = textFrom(formData, "authorLabel");
+  const comments = await listComments(reportId);
+  const target = comments.find((comment) => comment.id === commentId);
+
+  if (!target) {
+    redirect(returnPath ?? "/angel/reports");
+  }
+
+  const canDelete =
+    currentRole === "admin" ||
+    (currentRole === "angel" &&
+      target.authorRole === "angel" &&
+      target.authorLabel === authorLabel);
+
+  if (!canDelete) {
+    redirect(returnPath ? `${returnPath}?comment=forbidden` : "/angel/reports?comment=forbidden");
+  }
+
+  await softDeleteComment(commentId);
+
+  revalidatePath("/angel");
+  revalidatePath("/angel/reports");
+  revalidatePath(returnPath ?? "/angel/reports");
+  redirect(returnPath ? `${returnPath}?comment=deleted` : "/angel/reports?comment=deleted");
 }

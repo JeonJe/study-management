@@ -5,7 +5,11 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { submitAngelWeeklyReportAction } from "@/app/weekly-report-actions";
+import {
+  addWeeklyReportCommentAction,
+  deleteWeeklyReportCommentAction,
+  submitAngelWeeklyReportAction,
+} from "@/app/weekly-report-actions";
 import { isAuthenticated } from "@/lib/auth";
 import {
   type TeamMemberGroup,
@@ -21,13 +25,16 @@ import {
 } from "@/lib/role-session";
 import {
   type AngelWeeklyReport,
+  type WeeklyReportComment,
   type WeeklyReportCycle,
   type WeeklyReportTemplate,
   DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS,
   getWeeklyReportCycleById,
   getWeeklyReportTemplateById,
   listAngelWeeklyReports,
+  listComments,
 } from "@/lib/weekly-report-store";
+import type { RolePageRole } from "@/lib/role-page";
 
 type AngelTeamReportPageProps = {
   params: Promise<{ cycleId: string; teamName: string }>;
@@ -39,6 +46,7 @@ type AngelTeamReportPageData = {
   template: WeeklyReportTemplate | null;
   team: TeamMemberGroup | null;
   report: AngelWeeklyReport | null;
+  comments: WeeklyReportComment[];
   error: boolean;
 };
 
@@ -75,11 +83,15 @@ async function loadAngelTeamReportPageData(
         ])
       : [[], null];
 
+    const report = reports.find((item) => item.teamName === teamName) ?? null;
+    const comments = report ? await listComments(report.id) : [];
+
     return {
       cycle,
       template,
       team,
-      report: reports.find((item) => item.teamName === teamName) ?? null,
+      report,
+      comments,
       error: false,
     };
   } catch (error) {
@@ -89,6 +101,7 @@ async function loadAngelTeamReportPageData(
       template: null,
       team: null,
       report: null,
+      comments: [],
       error: true,
     };
   }
@@ -118,12 +131,16 @@ function TeamReportForm({
   template,
   team,
   report,
+  comments,
+  currentRole,
   submitted,
 }: {
   cycle: WeeklyReportCycle;
   template: WeeklyReportTemplate | null;
   team: TeamMemberGroup;
   report: AngelWeeklyReport | null;
+  comments: WeeklyReportComment[];
+  currentRole: RolePageRole | null;
   submitted: boolean;
 }) {
   const templateText =
@@ -283,6 +300,90 @@ function TeamReportForm({
           저장
         </button>
       </form>
+
+      <section className="card-static grid gap-4 p-5 sm:p-6">
+        <div>
+          <h2 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
+            댓글
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
+            보고 내용을 확인하며 필요한 피드백을 남깁니다.
+          </p>
+        </div>
+
+        {!report ? (
+          <p className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+            보고를 먼저 저장하면 댓글을 남길 수 있습니다.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-3">
+              {comments.length === 0 ? (
+                <p className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+                  아직 댓글이 없습니다.
+                </p>
+              ) : (
+                comments.map((comment) => {
+                  const canDelete =
+                    currentRole === "admin" ||
+                    (currentRole === "angel" &&
+                      comment.authorRole === "angel" &&
+                      comment.authorLabel === defaultAngelName);
+                  return (
+                    <article key={comment.id} className="rounded-xl border p-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+                          {comment.authorLabel}
+                        </p>
+                        {canDelete ? (
+                          <form action={deleteWeeklyReportCommentAction}>
+                            <input type="hidden" name="commentId" value={comment.id} />
+                            <input type="hidden" name="reportId" value={report.id} />
+                            <input type="hidden" name="authorLabel" value={defaultAngelName} />
+                            <input type="hidden" name="returnPath" value={returnPath} />
+                            <button
+                              type="submit"
+                              className="btn-press rounded-full border px-2.5 py-1 text-xs font-bold"
+                              style={{ borderColor: "#fecaca", color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+                            >
+                              삭제
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+                        {comment.body}
+                      </p>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+
+            <form action={addWeeklyReportCommentAction} className="grid gap-3">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="authorLabel" value={defaultAngelName} />
+              <input type="hidden" name="returnPath" value={returnPath} />
+              <textarea
+                name="body"
+                required
+                rows={4}
+                maxLength={4000}
+                placeholder="댓글을 입력하세요."
+                className="rounded-xl border px-3 py-3 text-sm"
+                style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+              />
+              <button
+                type="submit"
+                className="btn-press h-11 rounded-full px-4 text-sm font-bold text-white"
+                style={{ backgroundColor: "var(--accent)" }}
+              >
+                댓글 등록
+              </button>
+            </form>
+          </>
+        )}
+      </section>
     </section>
   );
 }
@@ -347,6 +448,8 @@ export default async function AngelTeamReportPage({
           template={data.template}
           team={data.team}
           report={data.report}
+          comments={data.comments}
+          currentRole={currentRole}
           submitted={singleParam(query.report) === "submitted"}
         />
       );
