@@ -13,6 +13,38 @@ type MapPreviewProps = {
   placeLink: string;
 };
 
+type KakaoPlace = {
+  place_name: string;
+  x: string;
+  y: string;
+};
+
+type KakaoLatLng = object;
+
+type KakaoMapsApi = {
+  load: (callback: () => void) => void;
+  LatLng: new (lat: number, lng: number) => KakaoLatLng;
+  Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => object;
+  Marker: new (options: { map: object; position: KakaoLatLng }) => object;
+  services: {
+    Status: { OK: string };
+    Places: new () => {
+      keywordSearch: (
+        query: string,
+        callback: (data: KakaoPlace[], status: string) => void
+      ) => void;
+    };
+  };
+};
+
+declare global {
+  interface Window {
+    kakao?: {
+      maps: KakaoMapsApi;
+    };
+  }
+}
+
 function displayLocationText(locationText: string, placeLink: string): string {
   return locationText.replace(placeLink, "").replace(/\s*\/\s*$/, "").trim() || locationText;
 }
@@ -20,43 +52,166 @@ function displayLocationText(locationText: string, placeLink: string): string {
 function MapLinkCard({
   locationText,
   placeLink,
-  compact = false,
 }: {
   locationText: string;
   placeLink: string;
-  compact?: boolean;
 }) {
   const label = displayLocationText(locationText, placeLink);
 
   return (
-    <div
-      className={compact ? "mt-2 rounded-xl border p-3" : "mt-2 rounded-2xl border p-4"}
-      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-    >
+    <div className="mt-2 rounded-xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
-            장소
-          </p>
-          <p className="mt-1 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
-            {label}
-          </p>
-        </div>
+        <p className="min-w-0 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          {label}
+        </p>
         <a
           href={placeLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+          className="btn-press inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-3 text-sm font-bold"
           style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
         >
           지도 열기
         </a>
       </div>
-      {!compact ? (
-        <p className="mt-3 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
-          네이버 지도는 미리보기 안에 검색 패널이 함께 표시되어, 새 창에서 여는 방식으로 제공합니다.
+    </div>
+  );
+}
+
+function loadKakaoMaps(appKey: string): Promise<KakaoMapsApi> {
+  if (window.kakao?.maps) {
+    return new Promise((resolve) => {
+      window.kakao?.maps.load(() => resolve(window.kakao!.maps));
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>("script[data-kakao-map-sdk]");
+    if (existingScript) {
+      existingScript.addEventListener("load", () => {
+        window.kakao?.maps.load(() => resolve(window.kakao!.maps));
+      }, { once: true });
+      existingScript.addEventListener("error", reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.dataset.kakaoMapSdk = "true";
+    script.async = true;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appKey)}&libraries=services&autoload=false`;
+    script.onload = () => {
+      window.kakao?.maps.load(() => resolve(window.kakao!.maps));
+    };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function KakaoMapPreview({
+  locationText,
+  placeLink,
+}: {
+  locationText: string;
+  placeLink: string;
+}) {
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "fallback">("loading");
+  const query = displayLocationText(locationText, placeLink);
+  const kakaoSearchUrl = `https://map.kakao.com/link/search/${encodeURIComponent(query)}`;
+  const appKey = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function renderMap() {
+      if (!appKey || !mapRef.current || !query) {
+        setStatus("fallback");
+        return;
+      }
+
+      try {
+        const maps = await loadKakaoMaps(appKey);
+        if (cancelled || !mapRef.current) return;
+
+        const places = new maps.services.Places();
+        places.keywordSearch(query, (data, searchStatus) => {
+          if (cancelled || !mapRef.current) return;
+          const place = data[0];
+          if (searchStatus !== maps.services.Status.OK || !place) {
+            setStatus("fallback");
+            return;
+          }
+
+          const position = new maps.LatLng(Number(place.y), Number(place.x));
+          const map = new maps.Map(mapRef.current, { center: position, level: 3 });
+          new maps.Marker({ map, position });
+          setStatus("ready");
+        });
+      } catch {
+        if (!cancelled) setStatus("fallback");
+      }
+    }
+
+    void renderMap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appKey, query]);
+
+  if (status === "fallback") {
+    return (
+      <div className="mt-2 grid gap-2 rounded-xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+        <p className="truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          {query}
         </p>
-      ) : null}
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={kakaoSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+            style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
+          >
+            카카오 지도 검색
+          </a>
+          <a
+            href={placeLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+            style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}
+          >
+            네이버 지도 열기
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-xl border" style={{ borderColor: "var(--line)" }}>
+      <div ref={mapRef} className="h-[280px] w-full" />
+      {status === "loading" ? (
+        <div className="border-t px-4 py-2 text-xs font-semibold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+          지도 로딩중...
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 border-t px-4 py-2" style={{ borderColor: "var(--line)" }}>
+          <p className="truncate text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
+            {query}
+          </p>
+          <a
+            href={kakaoSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-bold"
+            style={{ color: "var(--accent)" }}
+          >
+            카카오에서 보기 ↗
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -79,10 +234,6 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
     };
   }, [provider]);
 
-  if (provider === "naver") {
-    return <MapLinkCard locationText={locationText} placeLink={placeLink} />;
-  }
-
   function handleLoad() {
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current);
@@ -97,15 +248,25 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
     setStatus("error");
   }
 
+  const isNaver = provider === "naver";
+  if (isNaver) {
+    return <KakaoMapPreview locationText={locationText} placeLink={placeLink} />;
+  }
+
   if (status === "error") {
-    return <MapLinkCard locationText={locationText} placeLink={placeLink} compact />;
+    return <MapLinkCard locationText={locationText} placeLink={placeLink} />;
   }
 
   return (
     <div className="mt-2 w-full">
       <div
         className="relative w-full overflow-hidden rounded-xl border"
-        style={{ aspectRatio: "4/3", minHeight: "240px", maxHeight: "320px", borderColor: "var(--line)" }}
+        style={{
+          aspectRatio: isNaver ? "16/9" : "4/3",
+          minHeight: isNaver ? "260px" : "240px",
+          maxHeight: isNaver ? "360px" : "320px",
+          borderColor: "var(--line)",
+        }}
       >
         {/* 로딩 중 placeholder */}
         {status === "loading" && (
@@ -121,8 +282,14 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
         <iframe
           src={embedUrl}
           title="지도 미리보기"
-          className="absolute inset-0 h-full w-full"
-          style={{ opacity: status === "loaded" ? 1 : 0 }}
+          className="absolute"
+          style={{
+            left: isNaver ? "-86px" : 0,
+            top: isNaver ? "-116px" : 0,
+            width: isNaver ? "calc(100% + 172px)" : "100%",
+            height: isNaver ? "calc(100% + 190px)" : "100%",
+            opacity: status === "loaded" ? 1 : 0,
+          }}
           sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
           loading="lazy"
