@@ -15,6 +15,10 @@ import {
   listSettlementsForAfterparties,
   listParticipantsForSettlement,
 } from "@/lib/afterparty-store";
+import {
+  getTeamAttendanceByPeriod,
+  getMemberAttendanceByPeriod,
+} from "@/lib/history-store";
 
 // --- meetup-data ---
 
@@ -101,4 +105,20 @@ export const cachedListParticipantsForSettlement = (settlementId: string, keywor
     () => listParticipantsForSettlement(settlementId, keyword),
     ["listParticipantsForSettlement", settlementId, keyword],
     { tags: ["afterparty-data"], revalidate: 300 }
+  )();
+
+// --- attendance ---
+
+export const cachedGetTeamAttendanceByPeriod = (start: string, end: string, operatingUnitSlug?: string) =>
+  unstable_cache(
+    () => getTeamAttendanceByPeriod(start, end, operatingUnitSlug),
+    ["getTeamAttendanceByPeriod", start, end, operatingUnitSlug ?? ""],
+    { tags: ["attendance"], revalidate: 300 }
+  )();
+
+export const cachedGetMemberAttendanceByPeriod = (start: string, end: string, operatingUnitSlug?: string) =>
+  unstable_cache(
+    () => getMemberAttendanceByPeriod(start, end, operatingUnitSlug),
+    ["getMemberAttendanceByPeriod", start, end, operatingUnitSlug ?? ""],
+    { tags: ["attendance"], revalidate: 300 }
   )();
