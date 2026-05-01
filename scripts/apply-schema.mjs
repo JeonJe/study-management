@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { Pool } from "pg";
+import { loadEnvFile, maskDatabaseUrl, resolvePsql } from "./lib/env-utils.mjs";
 
 const DEFAULT_ENV_FILE = ".env.staging";
 const DEFAULT_SCHEMA_FILE = "docs/db/01_init_schema.sql";
@@ -56,54 +56,6 @@ function printHelp() {
 예:
   node scripts/apply-schema.mjs --env-file .env.staging
   node scripts/apply-schema.mjs --env-file .env.staging --verify-only`);
-}
-
-function loadEnvFile(filePath) {
-  const resolved = path.resolve(process.cwd(), filePath);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`${filePath} 파일을 찾을 수 없습니다.`);
-  }
-
-  const raw = fs.readFileSync(resolved, "utf8");
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const idx = trimmed.indexOf("=");
-    if (idx < 0) continue;
-
-    const key = trimmed.slice(0, idx).trim();
-    const rawValue = trimmed.slice(idx + 1).trim();
-    const value = rawValue.replace(/^["']|["']$/g, "");
-    if (key) process.env[key] = value;
-  }
-}
-
-function resolvePsql() {
-  const candidates = [
-    process.env.PSQL_BIN,
-    "psql",
-    "/opt/homebrew/bin/psql",
-    "/opt/homebrew/opt/postgresql@17/bin/psql",
-    "/opt/homebrew/opt/postgresql@16/bin/psql",
-    "/usr/local/opt/postgresql@17/bin/psql",
-  ].filter(Boolean);
-
-  for (const bin of candidates) {
-    const result = spawnSync(bin, ["--version"], { stdio: "ignore" });
-    if (result.status === 0) return bin;
-  }
-
-  throw new Error("psql 실행 파일을 찾을 수 없습니다. PostgreSQL client 설치 또는 PSQL_BIN 지정이 필요합니다.");
-}
-
-function maskDatabaseUrl(databaseUrl) {
-  try {
-    const parsed = new URL(databaseUrl);
-    return `${parsed.protocol}//${parsed.username}:***@${parsed.hostname}:${parsed.port || "5432"}${parsed.pathname}`;
-  } catch {
-    return "unparseable-database-url";
-  }
 }
 
 function readSchema(schemaFile) {
