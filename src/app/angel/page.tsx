@@ -80,17 +80,19 @@ function AngelHome({ unitSlug }: { unitSlug: string }) {
 }
 
 export default async function AngelPage({ searchParams }: AngelPageProps) {
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const currentRole = await getCurrentRolePageRole();
   const page = getRolePage("angel");
-  const unitSlug = singleParam(query.unit);
   const rolePath = cohortAwarePath(unitSlug, page.path);
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 

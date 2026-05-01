@@ -76,6 +76,10 @@ function MemberHome({ unitSlug }: { unitSlug: string }) {
 export default async function MemberPage({ searchParams }: MemberPageProps) {
   const params = await searchParams;
   const unitSlug = singleParam(params.unit);
+  if (!unitSlug) {
+    redirect("/admin");
+  }
+
   const authenticated = await isAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");

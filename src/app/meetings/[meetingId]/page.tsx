@@ -636,6 +636,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                   const embedInfo = placeLink ? extractMapEmbedInfo(placeLink) : null;
                   return embedInfo && placeLink ? (
                     <MapPreview
+                      provider={embedInfo.provider}
                       embedUrl={embedInfo.embedUrl}
                       locationText={meeting.location}
                       placeLink={placeLink}
