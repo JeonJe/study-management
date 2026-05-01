@@ -281,23 +281,54 @@ async function ensureMemberOperatingUnitColumns(): Promise<void> {
   await ensureOperatingUnitColumn("member_special_roles", "idx_member_special_roles_operating_unit");
 }
 
+async function hasMemberColumn(columnName: string): Promise<boolean> {
+  const [row] = await query<{ exists: boolean }>(
+    `select exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'member_team_members'
+         and column_name = $1
+     ) as exists`,
+    [columnName]
+  );
+
+  return Boolean(row?.exists);
+}
+
+async function hasIndex(indexName: string): Promise<boolean> {
+  const [row] = await query<{ exists: boolean }>(
+    `select to_regclass($1)::text is not null as exists`,
+    [`public.${indexName}`]
+  );
+
+  return Boolean(row?.exists);
+}
+
 async function ensureMemberIdentityColumns(): Promise<void> {
-  await query(
-    `alter table public.member_team_members
-     add column if not exists member_id text`
-  );
+  const hasColumn = await hasMemberColumn("member_id");
+  if (!hasColumn) {
+    await query(
+      `alter table public.member_team_members
+       add column if not exists member_id text`
+    );
+  }
 
-  await query(
-    `update public.member_team_members
-     set member_id = 'legacy-' || md5(coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') || ':' || team_name || ':' || member_name)
-     where member_id is null
-        or trim(member_id) = ''`
-  );
+  if (!hasColumn || runtimeMigrationsEnabled) {
+    await query(
+      `update public.member_team_members
+       set member_id = 'legacy-' || md5(coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') || ':' || team_name || ':' || member_name)
+       where member_id is null
+          or trim(member_id) = ''`
+    );
 
-  await query(
-    `alter table public.member_team_members
-     alter column member_id set not null`
-  );
+    await query(
+      `alter table public.member_team_members
+       alter column member_id set not null`
+    );
+  }
+
+  if (await hasIndex("idx_member_team_members_member_id")) return;
 
   await query(
     `do $$

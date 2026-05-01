@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import {
   listMeetings,
   listMeetingsByKind,
+  listMeetingsByKindAndDate,
   listMeetingsByDate,
   getMeetingById,
   listRsvpsForMeetings,
@@ -34,6 +35,13 @@ export const cachedListMeetingsByKind = (meetingKind: MeetingKind) =>
   unstable_cache(
     () => listMeetingsByKind(meetingKind),
     ["listMeetingsByKind", meetingKind],
+    { tags: ["meetup-data"], revalidate: 300 }
+  )();
+
+export const cachedListMeetingsByKindAndDate = (meetingKind: MeetingKind, meetingDate: string) =>
+  unstable_cache(
+    () => listMeetingsByKindAndDate(meetingKind, meetingDate),
+    ["listMeetingsByKindAndDate", meetingKind, meetingDate],
     { tags: ["meetup-data"], revalidate: 300 }
   )();
 
