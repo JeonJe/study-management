@@ -1,6 +1,11 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
 import { isMasterOverridePassword } from "@/lib/master-password";
+import {
+  DEFAULT_OPERATING_UNIT_SLUG,
+  ensureOperatingUnitColumn,
+  ensureOperatingUnitSchema,
+} from "@/lib/operating-unit-store";
 
 export type ParticipantRole =
   | "student"
@@ -12,6 +17,7 @@ export type ParticipantRole =
 
 export type MeetingSummary = {
   id: string;
+  operatingUnitSlug: string;
   title: string;
   meetingDate: string;
   startTime: string;
@@ -34,6 +40,7 @@ export type RsvpRecord = {
 };
 
 type CreateMeetingInput = {
+  operatingUnitSlug?: string;
   title: string;
   meetingDate: string;
   startTime: string;
@@ -161,15 +168,21 @@ async function ensureMeetingPasswordHashColumn(): Promise<void> {
   );
 }
 
+async function ensureMeetingOperatingUnitColumn(): Promise<void> {
+  await ensureOperatingUnitColumn("meetings", "idx_meetings_operating_unit");
+}
+
 export async function ensureSchema(): Promise<void> {
   if (schemaReady || process.env.SKIP_SCHEMA_CHECK === "1") return;
   if (schemaPromise) return schemaPromise;
 
   schemaPromise = (async () => {
+    await ensureOperatingUnitSchema();
     const schemaExists = await hasMeetupSchema();
     if (schemaExists) {
       await ensureMeetingLeadersColumn();
       await ensureMeetingPasswordHashColumn();
+      await ensureMeetingOperatingUnitColumn();
       if (!runtimeMigrationsEnabled) {
         schemaReady = true;
         return;
@@ -186,6 +199,7 @@ export async function ensureSchema(): Promise<void> {
         description text,
         leaders text[] not null default '{}'::text[],
         password_hash text,
+        operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
       )`
@@ -200,6 +214,8 @@ export async function ensureSchema(): Promise<void> {
       `alter table public.meetings
        add column if not exists password_hash text`
     );
+
+    await ensureMeetingOperatingUnitColumn();
 
     await query(
       `create index if not exists idx_meetings_meeting_date
@@ -265,6 +281,7 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
   return query<MeetingSummary>(
     `select
        m.id,
+       coalesce(m.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        m.title,
        m.meeting_date::text as "meetingDate",
        to_char(m.start_time, 'HH24:MI') as "startTime",
@@ -277,8 +294,10 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
        count(r.id)::int as "totalCount"
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
+     where coalesce(m.operating_unit_slug, $1) = $1
      group by m.id
-     order by m.meeting_date desc, m.start_time desc, m.created_at desc`
+     order by m.meeting_date desc, m.start_time desc, m.created_at desc`,
+    [DEFAULT_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -288,6 +307,7 @@ export async function listMeetingsByDate(meetingDate: string): Promise<MeetingSu
   return query<MeetingSummary>(
     `select
        m.id,
+       coalesce(m.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        m.title,
        m.meeting_date::text as "meetingDate",
        to_char(m.start_time, 'HH24:MI') as "startTime",
@@ -301,9 +321,10 @@ export async function listMeetingsByDate(meetingDate: string): Promise<MeetingSu
      from public.meetings m
      left join public.rsvps r on r.meeting_id = m.id
      where m.meeting_date = $1
+       and coalesce(m.operating_unit_slug, $2) = $2
      group by m.id
      order by m.meeting_date desc, m.start_time desc, m.created_at desc`,
-    [meetingDate]
+    [meetingDate, DEFAULT_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -313,6 +334,7 @@ export async function getMeetingById(meetingId: string): Promise<MeetingSummary 
   const [row] = await query<MeetingSummary>(
     `select
        m.id,
+       coalesce(m.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        m.title,
        m.meeting_date::text as "meetingDate",
        to_char(m.start_time, 'HH24:MI') as "startTime",
@@ -356,10 +378,11 @@ export async function createMeeting(input: CreateMeetingInput): Promise<MeetingS
   const passwordHash = password ? hashMeetingPassword(password) : null;
 
   const [created] = await query<MeetingSummary>(
-    `insert into public.meetings (id, title, meeting_date, start_time, location, description, leaders, password_hash)
-     values ($1, $2, $3, $4, $5, nullif($6, ''), $7::text[], $8)
+    `insert into public.meetings (id, title, meeting_date, start_time, location, description, leaders, password_hash, operating_unit_slug)
+     values ($1, $2, $3, $4, $5, nullif($6, ''), $7::text[], $8, $9)
      returning
        id,
+       coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        title,
        meeting_date::text as "meetingDate",
        to_char(start_time, 'HH24:MI') as "startTime",
@@ -379,6 +402,7 @@ export async function createMeeting(input: CreateMeetingInput): Promise<MeetingS
       input.description?.trim() ?? "",
       leaders,
       passwordHash,
+      input.operatingUnitSlug?.trim() || DEFAULT_OPERATING_UNIT_SLUG,
     ]
   );
 

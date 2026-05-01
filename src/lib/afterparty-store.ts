@@ -1,10 +1,16 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { isMasterOverridePassword } from "@/lib/master-password";
+import {
+  DEFAULT_OPERATING_UNIT_SLUG,
+  ensureOperatingUnitColumn,
+  ensureOperatingUnitSchema,
+} from "@/lib/operating-unit-store";
 import type { ParticipantRole } from "@/lib/meetup-store";
 
 export type AfterpartySummary = {
   id: string;
+  operatingUnitSlug: string;
   title: string;
   eventDate: string;
   startTime: string;
@@ -39,6 +45,7 @@ export type AfterpartySettlement = {
 };
 
 type CreateAfterpartyInput = {
+  operatingUnitSlug?: string;
   title: string;
   eventDate: string;
   startTime: string;
@@ -171,14 +178,20 @@ async function ensureAfterpartyPasswordHashColumn(): Promise<void> {
   );
 }
 
+async function ensureAfterpartyOperatingUnitColumn(): Promise<void> {
+  await ensureOperatingUnitColumn("afterparties", "idx_afterparties_operating_unit");
+}
+
 export async function ensureAfterpartySchema(): Promise<void> {
   if (schemaReady || process.env.SKIP_SCHEMA_CHECK === "1") return;
   if (schemaPromise) return schemaPromise;
 
   schemaPromise = (async () => {
+    await ensureOperatingUnitSchema();
     const schemaExists = await hasAfterpartySchema();
     if (schemaExists) {
       await ensureAfterpartyPasswordHashColumn();
+      await ensureAfterpartyOperatingUnitColumn();
       if (!runtimeMigrationsEnabled) {
         schemaReady = true;
         return;
@@ -198,6 +211,7 @@ export async function ensureAfterpartySchema(): Promise<void> {
         settlement_manager text,
         settlement_account text,
         password_hash text,
+        operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
       )`
@@ -217,6 +231,8 @@ export async function ensureAfterpartySchema(): Promise<void> {
       `alter table public.afterparties
        add column if not exists password_hash text`
     );
+
+    await ensureAfterpartyOperatingUnitColumn();
 
     await query(
       `create index if not exists idx_afterparties_event_date
@@ -555,6 +571,7 @@ export async function listAfterparties(): Promise<AfterpartySummary[]> {
   return query<AfterpartySummary>(
     `select
        a.id,
+       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -585,7 +602,9 @@ export async function listAfterparties(): Promise<AfterpartySummary[]> {
        from public.afterparty_settlements s
        where s.afterparty_id = a.id
      ) settlement_stats on true
-     order by a.event_date desc, a.start_time desc, a.created_at desc`
+     where coalesce(a.operating_unit_slug, $1) = $1
+     order by a.event_date desc, a.start_time desc, a.created_at desc`,
+    [DEFAULT_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -597,6 +616,7 @@ export async function listAfterpartiesByDate(
   return query<AfterpartySummary>(
     `select
        a.id,
+       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -628,8 +648,9 @@ export async function listAfterpartiesByDate(
        where s.afterparty_id = a.id
      ) settlement_stats on true
      where a.event_date = $1
+       and coalesce(a.operating_unit_slug, $2) = $2
      order by a.event_date desc, a.start_time desc, a.created_at desc`,
-    [eventDate]
+    [eventDate, DEFAULT_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -639,6 +660,7 @@ export async function getAfterpartyById(afterpartyId: string): Promise<Afterpart
   const [row] = await query<AfterpartySummary>(
     `select
        a.id,
+       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -818,11 +840,13 @@ export async function createAfterparty(input: CreateAfterpartyInput): Promise<Af
          description,
          settlement_manager,
          settlement_account,
-         password_hash
+         password_hash,
+         operating_unit_slug
        )
-       values ($1, $2, $3, $4, $5, nullif($6, ''), nullif($7, ''), nullif($8, ''), $9)
+       values ($1, $2, $3, $4, $5, nullif($6, ''), nullif($7, ''), nullif($8, ''), $9, $10)
        returning
          id,
+         coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
          title,
          event_date::text as "eventDate",
          to_char(start_time, 'HH24:MI') as "startTime",
@@ -843,6 +867,7 @@ export async function createAfterparty(input: CreateAfterpartyInput): Promise<Af
         settlementManager,
         settlementAccount,
         passwordHash,
+        input.operatingUnitSlug?.trim() || DEFAULT_OPERATING_UNIT_SLUG,
       ]
     );
 

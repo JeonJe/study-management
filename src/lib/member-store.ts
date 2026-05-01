@@ -1,4 +1,9 @@
 import { query, withTransaction } from "@/lib/db";
+import {
+  DEFAULT_OPERATING_UNIT_SLUG,
+  ensureOperatingUnitColumn,
+  ensureOperatingUnitSchema,
+} from "@/lib/operating-unit-store";
 
 export type TeamMemberGroup = {
   teamName: string;
@@ -144,8 +149,10 @@ async function ensureMemberSchema(): Promise<void> {
   if (schemaPromise) return schemaPromise;
 
   schemaPromise = (async () => {
+    await ensureOperatingUnitSchema();
     const schemaExists = await hasMemberSchema();
     if (schemaExists && !runtimeMigrationsEnabled) {
+      await ensureMemberOperatingUnitColumns();
       schemaReady = true;
       return;
     }
@@ -156,6 +163,7 @@ async function ensureMemberSchema(): Promise<void> {
          angel_name text not null,
          angel_names text[] not null default '{}'::text[],
          team_order integer not null default 0,
+         operating_unit_slug text not null default '3기',
          created_at timestamptz not null default now(),
          updated_at timestamptz not null default now()
        )`
@@ -185,6 +193,7 @@ async function ensureMemberSchema(): Promise<void> {
          team_name text not null references public.member_teams(team_name) on delete cascade,
          member_name text not null,
          member_order integer not null default 0,
+         operating_unit_slug text not null default '3기',
          created_at timestamptz not null default now(),
          primary key (team_name, member_name)
        )`
@@ -199,6 +208,7 @@ async function ensureMemberSchema(): Promise<void> {
       `create table if not exists public.member_angels (
          angel_name text primary key,
          angel_order integer not null default 0,
+         operating_unit_slug text not null default '3기',
          created_at timestamptz not null default now()
        )`
     );
@@ -213,6 +223,7 @@ async function ensureMemberSchema(): Promise<void> {
          role text not null check (role in ('supporter', 'buddy', 'mentor', 'manager')),
          member_name text not null,
          member_order integer not null default 0,
+         operating_unit_slug text not null default '3기',
          created_at timestamptz not null default now(),
          primary key (role, member_name)
        )`
@@ -223,12 +234,21 @@ async function ensureMemberSchema(): Promise<void> {
        on public.member_special_roles (role, member_order asc, member_name asc)`
     );
 
+    await ensureMemberOperatingUnitColumns();
+
     schemaReady = true;
   })().finally(() => {
     schemaPromise = null;
   });
 
   return schemaPromise;
+}
+
+async function ensureMemberOperatingUnitColumns(): Promise<void> {
+  await ensureOperatingUnitColumn("member_teams", "idx_member_teams_operating_unit");
+  await ensureOperatingUnitColumn("member_team_members", "idx_member_team_members_operating_unit");
+  await ensureOperatingUnitColumn("member_angels", "idx_member_angels_operating_unit");
+  await ensureOperatingUnitColumn("member_special_roles", "idx_member_special_roles_operating_unit");
 }
 
 async function migrateLegacyRosterDataIfNeeded(): Promise<void> {
@@ -304,8 +324,12 @@ export async function loadMemberPreset(): Promise<MemberPreset> {
        end as "angelNames",
        m.member_name as "memberName"
      from public.member_teams t
-     left join public.member_team_members m on m.team_name = t.team_name
-     order by t.team_order asc, t.team_name asc, m.member_order asc, m.member_name asc`
+     left join public.member_team_members m
+       on m.team_name = t.team_name
+      and coalesce(m.operating_unit_slug, $1) = $1
+     where coalesce(t.operating_unit_slug, $1) = $1
+     order by t.team_order asc, t.team_name asc, m.member_order asc, m.member_name asc`,
+    [DEFAULT_OPERATING_UNIT_SLUG]
   );
 
   const groups: TeamMemberGroup[] = [];
@@ -329,7 +353,9 @@ export async function loadMemberPreset(): Promise<MemberPreset> {
   const angelRows = await query<DbAngelRow>(
     `select angel_name as "angelName"
      from public.member_angels
-     order by angel_order asc, angel_name asc`
+     where coalesce(operating_unit_slug, $1) = $1
+     order by angel_order asc, angel_name asc`,
+    [DEFAULT_OPERATING_UNIT_SLUG]
   );
 
   const specialRoleRows = await query<DbSpecialRoleRow>(
@@ -337,16 +363,18 @@ export async function loadMemberPreset(): Promise<MemberPreset> {
        role,
        member_name as "memberName"
      from public.member_special_roles
+     where coalesce(operating_unit_slug, $1) = $1
      order by
        case role
          when 'mentor' then 1
          when 'manager' then 2
          when 'supporter' then 3
          when 'buddy' then 4
-         else 5
+       else 5
        end asc,
        member_order asc,
-       member_name asc`
+       member_name asc`,
+    [DEFAULT_OPERATING_UNIT_SLUG]
   );
   const specialRoles = createEmptySpecialRoleDirectory();
   for (const row of specialRoleRows) {
@@ -385,54 +413,62 @@ export async function saveMemberPresetToDb(
   await withTransaction(async (tq) => {
     for (const [teamOrder, group] of normalizedGroups.entries()) {
       await tq(
-        `insert into public.member_teams (team_name, angel_name, angel_names, team_order)
-         values ($1, $2, $3::text[], $4)
+        `insert into public.member_teams (team_name, angel_name, angel_names, team_order, operating_unit_slug)
+         values ($1, $2, $3::text[], $4, $5)
          on conflict (team_name)
          do update set
            angel_name = excluded.angel_name,
            angel_names = excluded.angel_names,
            team_order = excluded.team_order,
+           operating_unit_slug = excluded.operating_unit_slug,
            updated_at = now()`,
-        [group.teamName, group.angels[0] ?? "", group.angels, teamOrder]
+        [group.teamName, group.angels[0] ?? "", group.angels, teamOrder, DEFAULT_OPERATING_UNIT_SLUG]
       );
 
       await tq(
         `delete from public.member_team_members
          where team_name = $1
+           and coalesce(operating_unit_slug, $3) = $3
            and not (member_name = any($2::text[]))`,
-        [group.teamName, group.members]
+        [group.teamName, group.members, DEFAULT_OPERATING_UNIT_SLUG]
       );
 
       for (const [memberOrder, memberName] of group.members.entries()) {
         await tq(
-          `insert into public.member_team_members (team_name, member_name, member_order)
-           values ($1, $2, $3)
+          `insert into public.member_team_members (team_name, member_name, member_order, operating_unit_slug)
+           values ($1, $2, $3, $4)
            on conflict (team_name, member_name)
-           do update set member_order = excluded.member_order`,
-          [group.teamName, memberName, memberOrder]
+           do update set
+             member_order = excluded.member_order,
+             operating_unit_slug = excluded.operating_unit_slug`,
+          [group.teamName, memberName, memberOrder, DEFAULT_OPERATING_UNIT_SLUG]
         );
       }
     }
 
     await tq(
       `delete from public.member_teams
-       where not (team_name = any($1::text[]))`,
-      [teamNames]
+       where coalesce(operating_unit_slug, $2) = $2
+         and not (team_name = any($1::text[]))`,
+      [teamNames, DEFAULT_OPERATING_UNIT_SLUG]
     );
 
     await tq(
       `delete from public.member_angels
-       where not (angel_name = any($1::text[]))`,
-      [normalizedAngels]
+       where coalesce(operating_unit_slug, $2) = $2
+         and not (angel_name = any($1::text[]))`,
+      [normalizedAngels, DEFAULT_OPERATING_UNIT_SLUG]
     );
 
     for (const [angelOrder, angelName] of normalizedAngels.entries()) {
       await tq(
-        `insert into public.member_angels (angel_name, angel_order)
-         values ($1, $2)
+        `insert into public.member_angels (angel_name, angel_order, operating_unit_slug)
+         values ($1, $2, $3)
          on conflict (angel_name)
-         do update set angel_order = excluded.angel_order`,
-        [angelName, angelOrder]
+         do update set
+           angel_order = excluded.angel_order,
+           operating_unit_slug = excluded.operating_unit_slug`,
+        [angelName, angelOrder, DEFAULT_OPERATING_UNIT_SLUG]
       );
     }
 
@@ -442,17 +478,20 @@ export async function saveMemberPresetToDb(
         await tq(
           `delete from public.member_special_roles
            where role = $1
+             and coalesce(operating_unit_slug, $3) = $3
              and not (member_name = any($2::text[]))`,
-          [role, members]
+          [role, members, DEFAULT_OPERATING_UNIT_SLUG]
         );
 
         for (const [memberOrder, memberName] of members.entries()) {
           await tq(
-            `insert into public.member_special_roles (role, member_name, member_order)
-             values ($1, $2, $3)
+            `insert into public.member_special_roles (role, member_name, member_order, operating_unit_slug)
+             values ($1, $2, $3, $4)
              on conflict (role, member_name)
-             do update set member_order = excluded.member_order`,
-            [role, memberName, memberOrder]
+             do update set
+               member_order = excluded.member_order,
+               operating_unit_slug = excluded.operating_unit_slug`,
+            [role, memberName, memberOrder, DEFAULT_OPERATING_UNIT_SLUG]
           );
         }
       }
