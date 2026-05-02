@@ -10,6 +10,7 @@ import {
 import { cohortScopedPath } from "@/lib/cohort-routes";
 import { normalizeMeetingKind } from "@/lib/meeting-kind";
 import { withSettlementInPath } from "@/lib/navigation-utils";
+import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
 import {
   isAfterpartyPasswordError,
   createAfterparty,
@@ -128,10 +129,16 @@ async function resolveMeetingLabel(meetingId: string): Promise<string> {
   return getMeetingTitle(meetingId);
 }
 
+function unitSlugFromPath(path: string | null): string {
+  const match = path?.match(/^\/cohorts\/([^/?#]+)/);
+  return requireOperatingUnitSlug(match?.[1] ?? "");
+}
+
 async function resolveParticipantRoleEntries(
-  names: string[]
+  names: string[],
+  operatingUnitSlug: string
 ): Promise<Array<{ name: string; role: ParticipantRole }>> {
-  const memberPreset = await loadMemberPreset();
+  const memberPreset = await loadMemberPreset(operatingUnitSlug);
   const angelSet = new Set<string>([
     ...memberPreset.fixedAngels.map((name) => normalizeParticipantName(name)),
     ...memberPreset.teamGroups.flatMap((team) =>
@@ -343,6 +350,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
   const leaders = parseDelimitedPeople(textFrom(formData, "leaders"));
   const password = textFrom(formData, "meetingPassword").trim();
   const meetingKind = normalizeMeetingKind(textFrom(formData, "meetingKind").trim());
+  const operatingUnitSlug = requireOperatingUnitSlug(textFrom(formData, "unit"));
 
   if (!title || !meetingDate || !location) {
     redirect(returnPath ?? dashboardPath(state));
@@ -364,6 +372,7 @@ export async function createMeetingAction(formData: FormData): Promise<void> {
     password,
     capacity: capacityValue,
     meetingKind,
+    operatingUnitSlug,
   });
 
   revalidateMeetupViews(created.id, returnPath);
@@ -414,6 +423,7 @@ export async function createAfterpartyAction(formData: FormData): Promise<void> 
   const settlementManager = textFrom(formData, "settlementManager").trim();
   const settlementAccount = textFrom(formData, "settlementAccount").trim();
   const password = textFrom(formData, "afterpartyPassword").trim();
+  const operatingUnitSlug = requireOperatingUnitSlug(textFrom(formData, "unit"));
 
   if (!title || !eventDate || !location) {
     redirect(returnPath ?? afterpartyPath(state));
@@ -432,6 +442,7 @@ export async function createAfterpartyAction(formData: FormData): Promise<void> 
     settlementManager,
     settlementAccount,
     password,
+    operatingUnitSlug,
   });
 
   revalidateAfterpartyViews(created.id, returnPath);
@@ -472,7 +483,7 @@ export async function bulkCreateAfterpartyParticipantsAction(formData: FormData)
         }))
       : isParticipantRole(roleRaw)
         ? names.map((name) => ({ name, role: roleRaw }))
-        : await resolveParticipantRoleEntries(names);
+        : await resolveParticipantRoleEntries(names, unitSlugFromPath(returnPath));
 
   const insertedCount = await createAfterpartyParticipantsBulk(
     afterpartyId,
@@ -807,7 +818,7 @@ export async function bulkCreateRsvpsAction(formData: FormData): Promise<void> {
   if (isParticipantRole(roleRaw)) {
     insertedCount = await createRsvpsBulk(meetingId, roleRaw, names, meetingLabel);
   } else {
-    const roleEntries = await resolveParticipantRoleEntries(names);
+    const roleEntries = await resolveParticipantRoleEntries(names, unitSlugFromPath(returnPath));
 
     const roleBuckets = new Map<ParticipantRole, string[]>();
     for (const role of PARTICIPANT_ROLE_ORDER) {

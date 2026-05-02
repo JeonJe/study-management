@@ -366,7 +366,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
 
   const [meeting, memberPreset] = await Promise.all([
     cachedGetMeetingById(meetingId),
-    cachedLoadMemberPreset(),
+    cachedLoadMemberPreset(unitSlug),
   ]);
   if (!meeting) {
     redirect(cohortAwarePath(unitSlug, date ? `/?date=${date}` : "/"));

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query } from "@/lib/db";
 import {
-  DEFAULT_OPERATING_UNIT_SLUG,
+  MIGRATED_OPERATING_UNIT_SLUG,
   ensureOperatingUnitColumn,
   ensureOperatingUnitSchema,
 } from "@/lib/operating-unit-store";
@@ -278,7 +278,7 @@ export async function ensureWeeklyReportSchema(): Promise<void> {
          prompt text not null,
          sections jsonb not null default '[]'::jsonb,
          is_default boolean not null default false,
-         operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
+         operating_unit_slug text not null,
          created_at timestamptz not null default now(),
          updated_at timestamptz not null default now()
        )`
@@ -314,7 +314,7 @@ export async function ensureWeeklyReportSchema(): Promise<void> {
          due_date date,
          prompt text,
          status text not null default 'open' check (status in ('open', 'closed')),
-         operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
+         operating_unit_slug text not null,
          created_at timestamptz not null default now(),
          updated_at timestamptz not null default now()
        )`
@@ -405,7 +405,7 @@ export async function createWeeklyReportTemplate(
        sections,
        is_default as "isDefault",
        created_at::text as "createdAt"`,
-    [randomUUID(), name, prompt, JSON.stringify(sections), DEFAULT_OPERATING_UNIT_SLUG]
+    [randomUUID(), name, prompt, JSON.stringify(sections), MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   if (!created) {
@@ -433,7 +433,7 @@ export async function listWeeklyReportTemplates(): Promise<WeeklyReportTemplate[
      where coalesce(operating_unit_slug, $1) = $1
      order by is_default desc, created_at desc`
     ,
-    [DEFAULT_OPERATING_UNIT_SLUG]
+    [MIGRATED_OPERATING_UNIT_SLUG]
   ).then((templates) =>
     templates.map((template) => ({
       ...template,
@@ -462,7 +462,7 @@ export async function getWeeklyReportTemplateById(
      where id = $1
        and coalesce(operating_unit_slug, $2) = $2
      limit 1`,
-    [id, DEFAULT_OPERATING_UNIT_SLUG]
+    [id, MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   return template
@@ -503,7 +503,7 @@ export async function updateWeeklyReportTemplate(
        sections,
        is_default as "isDefault",
        created_at::text as "createdAt"`,
-    [id, name, prompt, JSON.stringify(sections), DEFAULT_OPERATING_UNIT_SLUG]
+    [id, name, prompt, JSON.stringify(sections), MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   if (!updated) {
@@ -529,14 +529,14 @@ export async function deleteWeeklyReportTemplate(templateId: string): Promise<vo
      set template_id = null, updated_at = now()
      where template_id = $1
        and coalesce(operating_unit_slug, $2) = $2`,
-    [id, DEFAULT_OPERATING_UNIT_SLUG]
+    [id, MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   await query(
     `delete from public.weekly_report_templates
      where id = $1
        and coalesce(operating_unit_slug, $2) = $2`,
-    [id, DEFAULT_OPERATING_UNIT_SLUG]
+    [id, MIGRATED_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -560,7 +560,7 @@ export async function createWeeklyReportCycle(
          where id = $1
            and coalesce(operating_unit_slug, $2) = $2
          limit 1`,
-        [templateId, DEFAULT_OPERATING_UNIT_SLUG]
+        [templateId, MIGRATED_OPERATING_UNIT_SLUG]
       ))[0]?.prompt
     : "";
   const prompt = nullableText(input.prompt) ?? nullableText(templatePrompt);
@@ -589,7 +589,7 @@ export async function createWeeklyReportCycle(
       normalizeDate(input.startDate),
       normalizeDate(input.dueDate),
       prompt,
-      DEFAULT_OPERATING_UNIT_SLUG,
+      MIGRATED_OPERATING_UNIT_SLUG,
     ]
   );
 
@@ -621,7 +621,7 @@ export async function updateWeeklyReportCycle(
          where id = $1
            and coalesce(operating_unit_slug, $2) = $2
          limit 1`,
-        [templateId, DEFAULT_OPERATING_UNIT_SLUG]
+        [templateId, MIGRATED_OPERATING_UNIT_SLUG]
       ))[0]?.prompt
     : "";
   const prompt = nullableText(input.prompt) ?? nullableText(templatePrompt);
@@ -657,7 +657,7 @@ export async function updateWeeklyReportCycle(
       normalizeDate(input.startDate),
       normalizeDate(input.dueDate),
       prompt,
-      DEFAULT_OPERATING_UNIT_SLUG,
+      MIGRATED_OPERATING_UNIT_SLUG,
     ]
   );
 
@@ -688,7 +688,7 @@ export async function listWeeklyReportCycles(): Promise<WeeklyReportCycle[]> {
      where coalesce(c.operating_unit_slug, $1) = $1
      group by c.id
      order by c.created_at desc`,
-    [DEFAULT_OPERATING_UNIT_SLUG]
+    [MIGRATED_OPERATING_UNIT_SLUG]
   );
 }
 
@@ -714,7 +714,7 @@ export async function getLatestOpenWeeklyReportCycle(): Promise<WeeklyReportCycl
      group by c.id
      order by c.created_at desc
      limit 1`,
-    [DEFAULT_OPERATING_UNIT_SLUG]
+    [MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   return cycle ?? null;
@@ -743,7 +743,7 @@ export async function getWeeklyReportCycleById(
        and coalesce(c.operating_unit_slug, $2) = $2
      group by c.id
      limit 1`,
-    [cycleId, DEFAULT_OPERATING_UNIT_SLUG]
+    [cycleId, MIGRATED_OPERATING_UNIT_SLUG]
   );
 
   return cycle ?? null;

@@ -89,12 +89,13 @@ function commentInitial(name: string): string {
 
 async function loadAngelTeamReportPageData(
   cycleId: string,
-  teamName: string
+  teamName: string,
+  unitSlug: string
 ): Promise<AngelTeamReportPageData> {
   try {
     const [cycle, preset] = await Promise.all([
       getWeeklyReportCycleById(cycleId),
-      loadMemberPreset(),
+      loadMemberPreset(unitSlug),
     ]);
     const team = preset.teamGroups.find((group) => group.teamName === teamName) ?? null;
     const [reports, template] = cycle
@@ -577,7 +578,8 @@ export default async function AngelTeamReportPage({
       />
     );
   } else {
-    const data = await loadAngelTeamReportPageData(routeParams.cycleId, teamName);
+    const unitSlug = singleParam(query.unit);
+    const data = await loadAngelTeamReportPageData(routeParams.cycleId, teamName, unitSlug);
 
     if (data.error) {
       content = (

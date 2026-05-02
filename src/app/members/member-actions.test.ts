@@ -50,6 +50,7 @@ describe("saveMemberPresetAction", () => {
     saveMemberPresetToDbMock.mockResolvedValue(undefined);
 
     const result = await saveMemberPresetAction({
+      operatingUnitSlug: "loop-pak-3",
       fixedAngels: ["오현직"],
       teamGroups: [
         {
@@ -69,6 +70,7 @@ describe("saveMemberPresetAction", () => {
 
     expect(result).toEqual({ ok: true });
     expect(saveMemberPresetToDbMock).toHaveBeenCalledWith(
+      "loop-pak-3",
       [
         {
           teamName: "1팀",
@@ -90,6 +92,7 @@ describe("saveMemberPresetAction", () => {
     isAuthenticatedMock.mockResolvedValue(true);
 
     const result = await saveMemberPresetAction({
+      operatingUnitSlug: "loop-pak-3",
       fixedAngels: [],
       teamGroups: [],
     });

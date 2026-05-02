@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import { DEFAULT_OPERATING_UNIT_SLUG } from "@/lib/operating-unit-store";
+import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
 import { ensureSchema } from "@/lib/meetup-store";
 import { ensureAfterpartySchema } from "@/lib/afterparty-store";
 import { compareText } from "@/lib/sort-utils";
@@ -72,7 +72,7 @@ export type MemberAttendanceDetail = {
  * - meetings 테이블에서 meeting_date BETWEEN start AND end 로 기간 필터
  * - member_teams + member_team_members JOIN으로 팀-멤버 매핑 확보
  * - rsvps LEFT JOIN으로 각 모임에 팀원 참석 여부 판정
- * - operatingUnitSlug 미전달 시 DEFAULT_OPERATING_UNIT_SLUG만 조회
+ * - operatingUnitSlug는 주소/폼에서 전달된 명시 운영 단위만 허용
  * - meetings가 0건이면 빈 배열 반환 (division by zero 방지)
  *
  * @param start 시작일 (ISO date string, 포함)
@@ -82,16 +82,17 @@ export type MemberAttendanceDetail = {
 export async function getTeamAttendanceByPeriod(
   start: string,
   end: string,
-  operatingUnitSlug: string = DEFAULT_OPERATING_UNIT_SLUG
+  operatingUnitSlug: string
 ): Promise<TeamAttendanceRow[]> {
   await ensureSchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   const meetingRows = await query<{ id: string }>(
     `select id
      from public.meetings
      where meeting_date between $1 and $2
        and coalesce(operating_unit_slug, $3) = $3`,
-    [start, end, operatingUnitSlug]
+    [start, end, unitSlug]
   );
 
   const totalMeetings = meetingRows.length;
@@ -109,7 +110,7 @@ export async function getTeamAttendanceByPeriod(
          and coalesce(m.operating_unit_slug, $1) = $1
        where coalesce(t.operating_unit_slug, $1) = $1
        order by t.team_name, m.member_order asc, m.member_name asc`,
-      [operatingUnitSlug]
+      [unitSlug]
     ),
     query<{ meetingId: string; name: string }>(
       `select
@@ -156,7 +157,7 @@ export async function getTeamAttendanceByPeriod(
  * - afterparty_participants + afterparties JOIN으로 기간 내 뒷풀이 참석 집계
  * - 두 결과를 애플리케이션 레벨 Map<name, row>으로 merge (FULL OUTER JOIN 대체)
  * - lower(name) 매칭으로 대소문자 차이 흡수
- * - operatingUnitSlug 미전달 시 DEFAULT_OPERATING_UNIT_SLUG만 조회
+ * - operatingUnitSlug는 주소/폼에서 전달된 명시 운영 단위만 허용
  *
  * @param start 시작일 (ISO date string, 포함)
  * @param end 종료일 (ISO date string, 포함)
@@ -165,10 +166,11 @@ export async function getTeamAttendanceByPeriod(
 export async function getMemberAttendanceByPeriod(
   start: string,
   end: string,
-  operatingUnitSlug: string = DEFAULT_OPERATING_UNIT_SLUG
+  operatingUnitSlug: string
 ): Promise<MemberAttendanceRow[]> {
   await ensureSchema();
   await ensureAfterpartySchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   // 모임 참석 집계 (rsvps + meetings)
   const meetingAttendance = await query<{ name: string; meetings: string }>(
@@ -180,7 +182,7 @@ export async function getMemberAttendanceByPeriod(
      where m.meeting_date between $1 and $2
        and coalesce(m.operating_unit_slug, $3) = $3
      group by lower(r.name)`,
-    [start, end, operatingUnitSlug]
+    [start, end, unitSlug]
   );
 
   // 뒷풀이 참석 집계 (afterparty_participants + afterparties)
@@ -193,7 +195,7 @@ export async function getMemberAttendanceByPeriod(
      where a.event_date between $1 and $2
        and coalesce(a.operating_unit_slug, $3) = $3
      group by lower(ap.name)`,
-    [start, end, operatingUnitSlug]
+    [start, end, unitSlug]
   );
 
   // 애플리케이션 레벨 merge (lower(name) 기준)
@@ -227,9 +229,10 @@ export async function getTeamAttendanceDetailByPeriod(
   teamName: string,
   start: string,
   end: string,
-  operatingUnitSlug: string = DEFAULT_OPERATING_UNIT_SLUG
+  operatingUnitSlug: string
 ): Promise<TeamAttendanceDetail> {
   await ensureSchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   const normalizedTeamName = teamName.trim();
   if (!normalizedTeamName) {
@@ -242,7 +245,7 @@ export async function getTeamAttendanceDetailByPeriod(
      where team_name = $1
        and coalesce(operating_unit_slug, $2) = $2
      order by member_order asc, member_name asc`,
-    [normalizedTeamName, operatingUnitSlug]
+    [normalizedTeamName, unitSlug]
   );
   const members = memberRows.map((row) => row.memberName);
 
@@ -261,7 +264,7 @@ export async function getTeamAttendanceDetailByPeriod(
      where m.meeting_date between $1 and $2
        and coalesce(m.operating_unit_slug, $3) = $3
      order by m.meeting_date desc, m.start_time desc, m.title asc`,
-    [start, end, operatingUnitSlug]
+    [start, end, unitSlug]
   );
 
   const normalizedMembers = members.map((member) => member.toLowerCase());
@@ -312,10 +315,11 @@ export async function getMemberAttendanceDetailByPeriod(
   name: string,
   start: string,
   end: string,
-  operatingUnitSlug: string = DEFAULT_OPERATING_UNIT_SLUG
+  operatingUnitSlug: string
 ): Promise<MemberAttendanceDetail> {
   await ensureSchema();
   await ensureAfterpartySchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   const normalizedName = name.trim().toLowerCase();
   if (!normalizedName) {
@@ -342,7 +346,7 @@ export async function getMemberAttendanceDetailByPeriod(
          and m.meeting_date between $2 and $3
          and coalesce(m.operating_unit_slug, $4) = $4
        order by m.meeting_date desc, m.start_time desc, m.title asc`,
-      [normalizedName, start, end, operatingUnitSlug]
+      [normalizedName, start, end, unitSlug]
     ),
     query<MemberAttendanceDetailItem>(
       `select
@@ -358,21 +362,21 @@ export async function getMemberAttendanceDetailByPeriod(
          and a.event_date between $2 and $3
          and coalesce(a.operating_unit_slug, $4) = $4
        order by a.event_date desc, a.start_time desc, a.title asc`,
-      [normalizedName, start, end, operatingUnitSlug]
+      [normalizedName, start, end, unitSlug]
     ),
     query<{ count: string }>(
       `select count(distinct id)::text as count
        from public.meetings
        where meeting_date between $1 and $2
          and coalesce(operating_unit_slug, $3) = $3`,
-      [start, end, operatingUnitSlug]
+      [start, end, unitSlug]
     ),
     query<{ count: string }>(
       `select count(distinct id)::text as count
        from public.afterparties
        where event_date between $1 and $2
          and coalesce(operating_unit_slug, $3) = $3`,
-      [start, end, operatingUnitSlug]
+      [start, end, unitSlug]
     ),
   ]);
 

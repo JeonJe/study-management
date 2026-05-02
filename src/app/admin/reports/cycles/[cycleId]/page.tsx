@@ -65,12 +65,13 @@ function shortDateTime(value: string): string {
 }
 
 async function safeLoadCycleDetail(
-  cycleId: string
+  cycleId: string,
+  unitSlug: string
 ): Promise<AdminReportCycleDetailData> {
   try {
     const [cycle, preset] = await Promise.all([
       getWeeklyReportCycleById(cycleId),
-      loadMemberPreset(),
+      loadMemberPreset(unitSlug),
     ]);
     const [reports, template] = cycle
       ? await Promise.all([
@@ -308,7 +309,8 @@ export default async function AdminReportCycleDetailPage({
       />
     );
   } else {
-    const data = await safeLoadCycleDetail(routeParams.cycleId);
+    const unitSlug = singleParam(query.unit);
+    const data = await safeLoadCycleDetail(routeParams.cycleId, unitSlug);
     content = (
       <CycleDetailPanel
         cycle={data.cycle}

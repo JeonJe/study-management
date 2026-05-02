@@ -13,8 +13,8 @@ import { pickNearestUpcomingIsoDate, toKstIsoDate } from "@/lib/date-utils";
 import { extractHttpUrl } from "@/lib/location-utils";
 import { normalizeMemberName, toTeamLabel, withTeamLabel } from "@/lib/member-label-utils";
 import {
-  DEFAULT_OPERATING_UNIT_NAME,
-  DEFAULT_OPERATING_UNIT_SLUG,
+  MIGRATED_OPERATING_UNIT_NAME,
+  MIGRATED_OPERATING_UNIT_SLUG,
   type OperatingUnit,
   listOperatingUnits,
 } from "@/lib/operating-unit-store";
@@ -128,8 +128,8 @@ async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[]> {
 
   return [
     {
-      slug: DEFAULT_OPERATING_UNIT_SLUG,
-      name: DEFAULT_OPERATING_UNIT_NAME,
+      slug: MIGRATED_OPERATING_UNIT_SLUG,
+      name: MIGRATED_OPERATING_UNIT_NAME,
       description: null,
     },
   ];
@@ -158,8 +158,8 @@ function LoginScreen({
       : "";
   const selectedUnit =
     units.find((unit) => unit.slug === selectedUnitSlug) ?? units[0] ?? {
-      slug: DEFAULT_OPERATING_UNIT_SLUG,
-      name: DEFAULT_OPERATING_UNIT_NAME,
+      slug: MIGRATED_OPERATING_UNIT_SLUG,
+      name: MIGRATED_OPERATING_UNIT_NAME,
       description: null,
     };
 
@@ -489,10 +489,12 @@ function CreateMeetingModal({
   selectedDate,
   returnPath,
   meetingKind,
+  unitSlug,
 }: {
   selectedDate: string;
   returnPath: string;
   meetingKind: MeetingKind;
+  unitSlug: string;
 }) {
   return (
     <details className="fixed bottom-6 right-6 z-40">
@@ -524,6 +526,7 @@ function CreateMeetingModal({
         <form action={createMeetingAction} className="grid gap-3">
           <input type="hidden" name="returnDate" value={selectedDate} />
           <input type="hidden" name="returnPath" value={returnPath} />
+          <input type="hidden" name="unit" value={unitSlug} />
           <input type="hidden" name="meetingKind" value={meetingKind} />
 
           <section
@@ -980,9 +983,9 @@ export async function MeetupDashboard({
     const hasRequestedDate = isIsoDate(requestDate);
     const [fetchedMeetings, memberPreset] = await Promise.all([
       hasRequestedDate
-        ? cachedListMeetingsByKindAndDate(meetingKind, selectedDate)
-        : cachedListMeetingsByKind(meetingKind),
-      cachedLoadMemberPreset(),
+        ? cachedListMeetingsByKindAndDate(meetingKind, selectedDate, selectedUnitSlug)
+        : cachedListMeetingsByKind(meetingKind, selectedUnitSlug),
+      cachedLoadMemberPreset(selectedUnitSlug),
     ]);
     meetings = fetchedMeetings;
     if (!hasRequestedDate) {
@@ -1122,6 +1125,7 @@ export async function MeetupDashboard({
         selectedDate={selectedDate}
         returnPath={`${resolvedBasePath}?date=${encodeURIComponent(selectedDate)}`}
         meetingKind={meetingKind}
+        unitSlug={selectedUnitSlug}
       />
     </main>
   );

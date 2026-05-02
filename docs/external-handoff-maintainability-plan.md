@@ -355,10 +355,11 @@ App Router 서버 컴포넌트 안에 데이터 로딩, 정렬, 표시 컴포넌
 
 #### 확인된 근거
 
-- `src/lib/operating-unit-store.ts`에 `DEFAULT_OPERATING_UNIT_SLUG = "loop-pak-3"`가 있고, `ensureOperatingUnitColumn()`이 여러 테이블에 `not null default 'loop-pak-3'`를 부여한다.
-- `src/lib/meetup-store.ts`, `src/lib/afterparty-store.ts`, `src/lib/member-store.ts`, `src/lib/weekly-report-store.ts`가 조회와 생성에서 `DEFAULT_OPERATING_UNIT_SLUG`를 fallback으로 사용한다.
-- `cachedListMeetings*`, `cachedLoadMemberPreset`, `cachedListAfterparties*`의 cache key가 운영 단위를 받지 않으므로 운영 단위가 늘어나면 캐시 오염 가능성이 있다.
-- `docs/db/01_init_schema.sql`은 아직 `operating_unit_slug text not null default '3기'`를 포함해 런타임 코드와 기준이 어긋난다.
+- `loop-pak-3`은 더 이상 "기본 운영 단위"가 아니라 기존 `3기` 데이터를 이관한 명시 운영 단위다.
+- `src/lib/operating-unit-store.ts`는 `null`, 빈 문자열, `default`, `3기`만 `loop-pak-3`으로 마이그레이션하고, 새 write path는 운영 단위 누락 시 실패한다.
+- `src/lib/meetup-store.ts`, `src/lib/afterparty-store.ts`, `src/lib/member-store.ts`, `src/lib/history-store.ts`는 조회와 생성 경계에서 운영 단위를 명시 인자로 받는다.
+- `cachedListMeetings*`, `cachedLoadMemberPreset`, `cachedListAfterparties*`, attendance cache key는 운영 단위를 포함한다.
+- `docs/db/01_init_schema.sql`과 런타임 schema 생성은 `operating_unit_slug` 컬럼에 DB default를 두지 않는다.
 
 #### 왜 필요한가
 

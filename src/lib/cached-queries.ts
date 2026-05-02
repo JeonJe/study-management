@@ -43,21 +43,33 @@ function cacheOrCall<T>(
 
 // --- meetup-data ---
 
-export const cachedListMeetings = () =>
-  cacheOrCall(listMeetings, ["listMeetings"], ["meetup-data"]);
+export const cachedListMeetings = (operatingUnitSlug: string) =>
+  cacheOrCall(() => listMeetings(operatingUnitSlug), ["listMeetings", operatingUnitSlug], ["meetup-data"]);
 
-export const cachedListMeetingsByKind = (meetingKind: MeetingKind) =>
-  cacheOrCall(() => listMeetingsByKind(meetingKind), ["listMeetingsByKind", meetingKind], ["meetup-data"]);
-
-export const cachedListMeetingsByKindAndDate = (meetingKind: MeetingKind, meetingDate: string) =>
+export const cachedListMeetingsByKind = (meetingKind: MeetingKind, operatingUnitSlug: string) =>
   cacheOrCall(
-    () => listMeetingsByKindAndDate(meetingKind, meetingDate),
-    ["listMeetingsByKindAndDate", meetingKind, meetingDate],
+    () => listMeetingsByKind(meetingKind, operatingUnitSlug),
+    ["listMeetingsByKind", operatingUnitSlug, meetingKind],
     ["meetup-data"]
   );
 
-export const cachedListMeetingsByDate = (meetingDate: string) =>
-  cacheOrCall(() => listMeetingsByDate(meetingDate), ["listMeetingsByDate", meetingDate], ["meetup-data"]);
+export const cachedListMeetingsByKindAndDate = (
+  meetingKind: MeetingKind,
+  meetingDate: string,
+  operatingUnitSlug: string
+) =>
+  cacheOrCall(
+    () => listMeetingsByKindAndDate(meetingKind, meetingDate, operatingUnitSlug),
+    ["listMeetingsByKindAndDate", operatingUnitSlug, meetingKind, meetingDate],
+    ["meetup-data"]
+  );
+
+export const cachedListMeetingsByDate = (meetingDate: string, operatingUnitSlug: string) =>
+  cacheOrCall(
+    () => listMeetingsByDate(meetingDate, operatingUnitSlug),
+    ["listMeetingsByDate", operatingUnitSlug, meetingDate],
+    ["meetup-data"]
+  );
 
 export const cachedGetMeetingById = (meetingId: string) =>
   cacheOrCall(() => getMeetingById(meetingId), ["getMeetingById", meetingId], ["meetup-data"]);
@@ -71,16 +83,20 @@ export const cachedListRsvpsForMeetings = (meetingIds: string[], keyword: string
 
 // --- member-data ---
 
-export const cachedLoadMemberPreset = () =>
-  cacheOrCall(loadMemberPreset, ["loadMemberPreset"], ["member-data"]);
+export const cachedLoadMemberPreset = (operatingUnitSlug: string) =>
+  cacheOrCall(() => loadMemberPreset(operatingUnitSlug), ["loadMemberPreset", operatingUnitSlug], ["member-data"]);
 
 // --- afterparty-data ---
 
-export const cachedListAfterparties = () =>
-  cacheOrCall(listAfterparties, ["listAfterparties"], ["afterparty-data"]);
+export const cachedListAfterparties = (operatingUnitSlug: string) =>
+  cacheOrCall(() => listAfterparties(operatingUnitSlug), ["listAfterparties", operatingUnitSlug], ["afterparty-data"]);
 
-export const cachedListAfterpartiesByDate = (eventDate: string) =>
-  cacheOrCall(() => listAfterpartiesByDate(eventDate), ["listAfterpartiesByDate", eventDate], ["afterparty-data"]);
+export const cachedListAfterpartiesByDate = (eventDate: string, operatingUnitSlug: string) =>
+  cacheOrCall(
+    () => listAfterpartiesByDate(eventDate, operatingUnitSlug),
+    ["listAfterpartiesByDate", operatingUnitSlug, eventDate],
+    ["afterparty-data"]
+  );
 
 export const cachedGetAfterpartyById = (afterpartyId: string) =>
   cacheOrCall(() => getAfterpartyById(afterpartyId), ["getAfterpartyById", afterpartyId], ["afterparty-data"]);
@@ -115,17 +131,17 @@ export const cachedListParticipantsForSettlement = (settlementId: string, keywor
 
 // --- attendance ---
 
-export const cachedGetTeamAttendanceByPeriod = (start: string, end: string, operatingUnitSlug?: string) =>
+export const cachedGetTeamAttendanceByPeriod = (start: string, end: string, operatingUnitSlug: string) =>
   cacheOrCall(
     () => getTeamAttendanceByPeriod(start, end, operatingUnitSlug),
-    ["getTeamAttendanceByPeriod", start, end, operatingUnitSlug ?? ""],
+    ["getTeamAttendanceByPeriod", start, end, operatingUnitSlug],
     ["attendance"]
   );
 
-export const cachedGetMemberAttendanceByPeriod = (start: string, end: string, operatingUnitSlug?: string) =>
+export const cachedGetMemberAttendanceByPeriod = (start: string, end: string, operatingUnitSlug: string) =>
   cacheOrCall(
     () => getMemberAttendanceByPeriod(start, end, operatingUnitSlug),
-    ["getMemberAttendanceByPeriod", start, end, operatingUnitSlug ?? ""],
+    ["getMemberAttendanceByPeriod", start, end, operatingUnitSlug],
     ["attendance"]
   );
 
@@ -133,11 +149,11 @@ export const cachedGetTeamAttendanceDetailByPeriod = (
   teamName: string,
   start: string,
   end: string,
-  operatingUnitSlug?: string
+  operatingUnitSlug: string
 ) =>
   cacheOrCall(
     () => getTeamAttendanceDetailByPeriod(teamName, start, end, operatingUnitSlug),
-    ["getTeamAttendanceDetailByPeriod", teamName, start, end, operatingUnitSlug ?? ""],
+    ["getTeamAttendanceDetailByPeriod", teamName, start, end, operatingUnitSlug],
     ["attendance"]
   );
 
@@ -145,10 +161,10 @@ export const cachedGetMemberAttendanceDetailByPeriod = (
   name: string,
   start: string,
   end: string,
-  operatingUnitSlug?: string
+  operatingUnitSlug: string
 ) =>
   cacheOrCall(
     () => getMemberAttendanceDetailByPeriod(name, start, end, operatingUnitSlug),
-    ["getMemberAttendanceDetailByPeriod", name, start, end, operatingUnitSlug ?? ""],
+    ["getMemberAttendanceDetailByPeriod", name, start, end, operatingUnitSlug],
     ["attendance"]
   );

@@ -46,11 +46,14 @@ function singleParam(value: string | string[] | undefined): string {
   return value ?? "";
 }
 
-async function loadAngelReportPageData(cycleId: string): Promise<AngelReportPageData> {
+async function loadAngelReportPageData(
+  cycleId: string,
+  unitSlug: string
+): Promise<AngelReportPageData> {
   try {
     const [cycle, preset] = await Promise.all([
       getWeeklyReportCycleById(cycleId),
-      loadMemberPreset(),
+      loadMemberPreset(unitSlug),
     ]);
 
     return {
@@ -331,7 +334,8 @@ export default async function AngelReportCyclePage({
       />
     );
   } else {
-    const data = await loadAngelReportPageData(routeParams.cycleId);
+    const unitSlug = singleParam(query.unit);
+    const data = await loadAngelReportPageData(routeParams.cycleId, unitSlug);
 
     content = (
       <WeeklyReportAngelPanel

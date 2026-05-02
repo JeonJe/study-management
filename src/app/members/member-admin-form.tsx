@@ -12,6 +12,7 @@ import { MemberSaveToolbar } from "@/app/members/member-save-toolbar";
 import { PARTICIPANT_ROLE_META } from "@/lib/participant-role-utils";
 
 type MemberAdminFormProps = {
+  operatingUnitSlug: string;
   initialFixedAngels: string[];
   initialTeamGroups: TeamMemberGroup[];
   initialSpecialRoles: SpecialRoleDirectory;
@@ -94,6 +95,7 @@ function RemoveChipButton({
 }
 
 export function MemberAdminForm({
+  operatingUnitSlug,
   initialFixedAngels,
   initialTeamGroups,
   initialSpecialRoles,
@@ -176,14 +178,17 @@ export function MemberAdminForm({
     setSaveState("idle");
 
     try {
-      const result = await saveMemberPresetAction(payload);
+      const result = await saveMemberPresetAction({
+        ...payload,
+        operatingUnitSlug,
+      });
       setSaveState(result.ok ? "saved" : "error");
     } catch {
       setSaveState("error");
     } finally {
       setSaving(false);
     }
-  }, [canSave, payload, saving]);
+  }, [canSave, operatingUnitSlug, payload, saving]);
 
   function updateTeam(index: number, updater: (team: TeamDraft) => TeamDraft): void {
     setTeams((prev) => prev.map((team, i) => (i === index ? updater(team) : team)));

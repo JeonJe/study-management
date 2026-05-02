@@ -2,6 +2,7 @@
 
 import { isAuthenticated } from "@/lib/auth";
 import { revalidateMemberData } from "@/lib/cache-invalidation";
+import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
 import {
   saveMemberPresetToDb,
   SPECIAL_PARTICIPANT_ROLES,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/member-store";
 
 type SaveMemberPresetInput = {
+  operatingUnitSlug?: unknown;
   fixedAngels?: unknown;
   teamGroups?: unknown;
   specialRoles?: unknown;
@@ -137,9 +139,18 @@ export async function saveMemberPresetAction(
   if (!parsed) {
     return { ok: false, error: "invalid" };
   }
+  const operatingUnitSlug =
+    typeof payload.operatingUnitSlug === "string"
+      ? payload.operatingUnitSlug
+      : "";
 
   try {
-    await saveMemberPresetToDb(parsed.teamGroups, parsed.fixedAngels, parsed.specialRoles);
+    await saveMemberPresetToDb(
+      requireOperatingUnitSlug(operatingUnitSlug),
+      parsed.teamGroups,
+      parsed.fixedAngels,
+      parsed.specialRoles
+    );
   } catch {
     return { ok: false, error: "save-failed" };
   }

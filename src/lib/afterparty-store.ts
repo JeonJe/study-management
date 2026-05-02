@@ -2,10 +2,10 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { isMasterOverridePassword } from "@/lib/master-password";
 import {
-  DEFAULT_OPERATING_UNIT_SLUG,
   assertOperatingUnitAcceptsNewData,
   ensureOperatingUnitColumn,
   ensureOperatingUnitSchema,
+  requireOperatingUnitSlug,
 } from "@/lib/operating-unit-store";
 import type { ParticipantRole } from "@/lib/meetup-store";
 
@@ -46,7 +46,7 @@ export type AfterpartySettlement = {
 };
 
 type CreateAfterpartyInput = {
-  operatingUnitSlug?: string;
+  operatingUnitSlug: string;
   title: string;
   eventDate: string;
   startTime: string;
@@ -225,7 +225,7 @@ export async function ensureAfterpartySchema(): Promise<void> {
         settlement_manager text,
         settlement_account text,
         password_hash text,
-        operating_unit_slug text not null default '${DEFAULT_OPERATING_UNIT_SLUG}',
+        operating_unit_slug text not null,
         created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
       )`
@@ -581,13 +581,14 @@ async function ensureTargetSettlementId(
   return fallbackId;
 }
 
-export async function listAfterparties(): Promise<AfterpartySummary[]> {
+export async function listAfterparties(operatingUnitSlug: string): Promise<AfterpartySummary[]> {
   await ensureAfterpartySchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   return query<AfterpartySummary>(
     `select
        a.id,
-       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
+       coalesce(a.operating_unit_slug, $1) as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -620,19 +621,21 @@ export async function listAfterparties(): Promise<AfterpartySummary[]> {
      ) settlement_stats on true
      where coalesce(a.operating_unit_slug, $1) = $1
      order by a.event_date desc, a.start_time asc, a.created_at asc`,
-    [DEFAULT_OPERATING_UNIT_SLUG]
+    [unitSlug]
   );
 }
 
 export async function listAfterpartiesByDate(
-  eventDate: string
+  eventDate: string,
+  operatingUnitSlug: string
 ): Promise<AfterpartySummary[]> {
   await ensureAfterpartySchema();
+  const unitSlug = requireOperatingUnitSlug(operatingUnitSlug);
 
   return query<AfterpartySummary>(
     `select
        a.id,
-       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
+       coalesce(a.operating_unit_slug, $2) as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -666,7 +669,7 @@ export async function listAfterpartiesByDate(
      where a.event_date = $1
        and coalesce(a.operating_unit_slug, $2) = $2
      order by a.event_date desc, a.start_time asc, a.created_at asc`,
-    [eventDate, DEFAULT_OPERATING_UNIT_SLUG]
+    [eventDate, unitSlug]
   );
 }
 
@@ -676,7 +679,7 @@ export async function getAfterpartyById(afterpartyId: string): Promise<Afterpart
   const [row] = await query<AfterpartySummary>(
     `select
        a.id,
-       coalesce(a.operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
+       a.operating_unit_slug as "operatingUnitSlug",
        a.title,
        a.event_date::text as "eventDate",
        to_char(a.start_time, 'HH24:MI') as "startTime",
@@ -845,7 +848,7 @@ export async function createAfterparty(input: CreateAfterpartyInput): Promise<Af
     const settlementAccount = input.settlementAccount?.trim() ?? "";
     const password = normalizeAfterpartyPassword(input.password);
     const passwordHash = password ? hashAfterpartyPassword(password) : null;
-    const operatingUnitSlug = input.operatingUnitSlug?.trim() || DEFAULT_OPERATING_UNIT_SLUG;
+    const operatingUnitSlug = requireOperatingUnitSlug(input.operatingUnitSlug);
     await assertOperatingUnitAcceptsNewData(operatingUnitSlug);
 
     const [created] = await tq<AfterpartySummary>(
@@ -864,7 +867,7 @@ export async function createAfterparty(input: CreateAfterpartyInput): Promise<Af
        values ($1, $2, $3, $4, $5, nullif($6, ''), nullif($7, ''), nullif($8, ''), $9, $10)
        returning
          id,
-         coalesce(operating_unit_slug, '${DEFAULT_OPERATING_UNIT_SLUG}') as "operatingUnitSlug",
+         operating_unit_slug as "operatingUnitSlug",
          title,
          event_date::text as "eventDate",
          to_char(start_time, 'HH24:MI') as "startTime",

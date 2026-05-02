@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/operating-unit-store", () => ({
-  DEFAULT_OPERATING_UNIT_SLUG: "loop-pak-3",
+  requireOperatingUnitSlug: vi.fn((slug: string) => slug.trim()),
   ensureOperatingUnitSchema: vi.fn().mockResolvedValue(undefined),
   ensureOperatingUnitColumn: vi.fn().mockResolvedValue(undefined),
 }));
@@ -64,7 +64,7 @@ describe("history-store", () => {
       // meetings 쿼리 → 빈 배열
       queryMock.mockResolvedValueOnce([]);
 
-      const result = await getTeamAttendanceByPeriod("2026-01-01", "2026-01-31");
+      const result = await getTeamAttendanceByPeriod("2026-01-01", "2026-01-31", "loop-pak-3");
 
       expect(result).toEqual([]);
       // meetings 조회 1회만 호출 (팀/rsvp 쿼리 불필요)
@@ -85,7 +85,7 @@ describe("history-store", () => {
       // 3) 기간 내 RSVP 목록 쿼리
       queryMock.mockResolvedValueOnce([{ meetingId, name: "alice" }]);
 
-      const result = await getTeamAttendanceByPeriod("2026-03-01", "2026-03-31");
+      const result = await getTeamAttendanceByPeriod("2026-03-01", "2026-03-31", "loop-pak-3");
 
       expect(result).toHaveLength(2);
 
@@ -120,7 +120,7 @@ describe("history-store", () => {
         { meetingId: ids[1], name: "alice" },
       ]);
 
-      const result = await getTeamAttendanceByPeriod("2026-01-01", "2026-03-31");
+      const result = await getTeamAttendanceByPeriod("2026-01-01", "2026-03-31", "loop-pak-3");
 
       expect(result).toHaveLength(1);
       const teamA = result[0];
@@ -159,7 +159,7 @@ describe("history-store", () => {
 
   describe("getTeamAttendanceDetailByPeriod", () => {
     it("빈 팀명이면 상세 내역 없이 반환한다", async () => {
-      const result = await getTeamAttendanceDetailByPeriod("   ", "2026-04-01", "2026-04-30");
+      const result = await getTeamAttendanceDetailByPeriod("   ", "2026-04-01", "2026-04-30", "loop-pak-3");
 
       expect(result).toEqual({
         team: "",
@@ -229,7 +229,7 @@ describe("history-store", () => {
       // 뒷풀이 참석 쿼리 → 빈 배열
       queryMock.mockResolvedValueOnce([]);
 
-      const result = await getMemberAttendanceByPeriod("2026-01-01", "2026-01-31");
+      const result = await getMemberAttendanceByPeriod("2026-01-01", "2026-01-31", "loop-pak-3");
 
       expect(result).toEqual([]);
     });
@@ -243,7 +243,7 @@ describe("history-store", () => {
       // 뒷풀이 참석 쿼리 → 빈 배열
       queryMock.mockResolvedValueOnce([]);
 
-      const result = await getMemberAttendanceByPeriod("2026-03-01", "2026-03-31");
+      const result = await getMemberAttendanceByPeriod("2026-03-01", "2026-03-31", "loop-pak-3");
 
       expect(result).toHaveLength(2);
       expect(result.find((r) => r.name === "alice")).toEqual({
@@ -271,7 +271,7 @@ describe("history-store", () => {
         { name: "dave", afterparties: "1" },
       ]);
 
-      const result = await getMemberAttendanceByPeriod("2026-01-01", "2026-03-31");
+      const result = await getMemberAttendanceByPeriod("2026-01-01", "2026-03-31", "loop-pak-3");
 
       expect(result).toHaveLength(4);
 
@@ -296,7 +296,7 @@ describe("history-store", () => {
 
   describe("getMemberAttendanceDetailByPeriod", () => {
     it("빈 이름이면 상세 내역 없이 반환한다", async () => {
-      const result = await getMemberAttendanceDetailByPeriod("   ", "2026-04-01", "2026-04-30");
+      const result = await getMemberAttendanceDetailByPeriod("   ", "2026-04-01", "2026-04-30", "loop-pak-3");
 
       expect(result).toEqual({
         name: "",
@@ -394,7 +394,7 @@ describe("history-store", () => {
       expect(lastCall[2]).toEqual({ tags: ["attendance"], revalidate: 300 });
     });
 
-    it("cachedGetMemberAttendanceByPeriod — operatingUnitSlug 미전달 시 키 끝이 빈 문자열로 정규화된다", async () => {
+    it("cachedGetMemberAttendanceByPeriod — 명시 운영 단위를 캐시 키에 포함한다", async () => {
       const { cachedGetMemberAttendanceByPeriod } = await import(
         "@/lib/cached-queries"
       );
@@ -403,7 +403,7 @@ describe("history-store", () => {
       queryMock.mockResolvedValueOnce([]);
       queryMock.mockResolvedValueOnce([]);
 
-      await cachedGetMemberAttendanceByPeriod("2026-03-01", "2026-03-31");
+      await cachedGetMemberAttendanceByPeriod("2026-03-01", "2026-03-31", "loop-pak-3");
 
       const lastCall =
         unstableCacheMock.mock.calls[unstableCacheMock.mock.calls.length - 1];
@@ -411,7 +411,7 @@ describe("history-store", () => {
         "getMemberAttendanceByPeriod",
         "2026-03-01",
         "2026-03-31",
-        "",
+        "loop-pak-3",
       ]);
       expect(lastCall[2]).toEqual({ tags: ["attendance"], revalidate: 300 });
     });

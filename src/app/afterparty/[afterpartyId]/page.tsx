@@ -311,7 +311,7 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
   const [afterparty, settlements, memberPreset] = await Promise.all([
     cachedGetAfterpartyById(afterpartyId),
     cachedListSettlementsForAfterparty(afterpartyId),
-    cachedLoadMemberPreset(),
+    cachedLoadMemberPreset(unitSlug),
   ]);
 
   if (!afterparty) {

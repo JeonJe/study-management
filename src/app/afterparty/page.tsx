@@ -126,9 +126,11 @@ function AfterpartyParticipantChip({ participant }: { participant: DecoratedAfte
 function CreateAfterpartyModal({
   selectedDate,
   returnPath,
+  unitSlug,
 }: {
   selectedDate: string;
   returnPath: string;
+  unitSlug: string;
 }) {
   return (
     <details className="fixed bottom-6 right-6 z-40">
@@ -153,6 +155,7 @@ function CreateAfterpartyModal({
         <form action={createAfterpartyAction} className="grid gap-3">
           <input type="hidden" name="returnDate" value={selectedDate} />
           <input type="hidden" name="returnPath" value={returnPath} />
+          <input type="hidden" name="unit" value={unitSlug} />
 
           <section
             className="grid gap-3 rounded-xl border p-3 sm:grid-cols-6"
@@ -451,7 +454,7 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
   let loadError = "";
 
   try {
-    const memberPreset = await cachedLoadMemberPreset();
+    const memberPreset = await cachedLoadMemberPreset(unitSlug);
     for (const group of memberPreset.teamGroups) {
       const teamLabel = toTeamLabel(group.teamName);
       for (const angel of group.angels) {
@@ -471,16 +474,16 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
     if (isIsoDate(requestDate)) {
       selectedDate = requestDate;
       afterpartiesOnDate = sortAfterpartiesByStartTime(
-        await cachedListAfterpartiesByDate(selectedDate)
+        await cachedListAfterpartiesByDate(selectedDate, unitSlug)
       );
     } else {
-      const allAfterparties = await cachedListAfterparties();
+      const allAfterparties = await cachedListAfterparties(unitSlug);
       selectedDate = pickNearestUpcomingIsoDate(
         allAfterparties.map((item) => item.eventDate),
         todayIsoDate
       );
       afterpartiesOnDate = sortAfterpartiesByStartTime(
-        await cachedListAfterpartiesByDate(selectedDate)
+        await cachedListAfterpartiesByDate(selectedDate, unitSlug)
       );
     }
     participantsByAfterparty = await cachedListParticipantsForAfterparties(
@@ -609,6 +612,7 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
       <CreateAfterpartyModal
         selectedDate={selectedDate}
         returnPath={`${afterpartyBasePath}?date=${encodeURIComponent(selectedDate)}`}
+        unitSlug={unitSlug}
       />
     </main>
   );

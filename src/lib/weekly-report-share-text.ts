@@ -1,4 +1,5 @@
 import { loadMemberPreset } from "@/lib/member-store";
+import { MIGRATED_OPERATING_UNIT_SLUG } from "@/lib/operating-unit-store";
 import {
   type AngelWeeklyReport,
   countCommentsByReportIds,
@@ -38,7 +39,7 @@ export async function buildCycleShareText(cycleId: string): Promise<string> {
   const id = cleanCycleId(cycleId);
   const [cycle, memberPreset] = await Promise.all([
     getWeeklyReportCycleById(id),
-    loadMemberPreset(),
+    loadMemberPreset(MIGRATED_OPERATING_UNIT_SLUG),
   ]);
 
   if (!cycle) {

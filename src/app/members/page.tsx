@@ -24,7 +24,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     redirect("/?auth=required");
   }
 
-  const preset = await cachedLoadMemberPreset();
+  const preset = await cachedLoadMemberPreset(unitSlug);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-10">
@@ -36,6 +36,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
 
       <section className="fade-in">
         <MemberAdminForm
+          operatingUnitSlug={unitSlug}
           initialFixedAngels={preset.fixedAngels}
           initialTeamGroups={preset.teamGroups}
           initialSpecialRoles={preset.specialRoles}
