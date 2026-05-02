@@ -13,6 +13,7 @@
 | `npm run e2e` | Playwright chromium 사용자 흐름 |
 | `npx playwright test --project=regression` | 쓰기 흐름 중심 회귀 시나리오 |
 | `RUN_E2E=1 npm run quality:harness` | lint/test/build + 선택적 E2E 통합 게이트 |
+| `npx playwright test e2e/performance.spec.ts --project=chromium` | 로컬 성능 기준선 측정, 결과는 `docs/performance-results.md`에 기록 |
 
 ## 단위 테스트 맵
 
@@ -51,4 +52,3 @@
 | `PLAYWRIGHT_BASE_URL` | `http://localhost:3000` |
 
 운영 유사 URL에서 E2E를 실행해야 하는 특별한 경우에는 명시적으로 `PLAYWRIGHT_BASE_URL`을 지정하고, 쓰기 시나리오가 실제 운영 데이터를 오염시키지 않는지 별도 확인한다.
-
