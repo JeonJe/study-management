@@ -4,7 +4,7 @@
 
 ## 1. 기준과 전제
 
-이 문서는 현재 레포의 실제 소스 기준으로 디자인 개선 방향을 정리한다. `docs/screenshots/*sample.png`는 과거 샘플이므로 판단 기준에서 제외했다.
+이 문서는 현재 레포의 실제 소스 기준으로 디자인 개선 방향을 정리한다. `docs/screenshots/*sample.png`는 과거 샘플이므로 판단 기준에서 제외했다. 라이브 피드백에서 확정한 실무 UI 원칙은 `docs/ui-ux-principles.md`를 우선 기준으로 삼는다.
 
 2026-05-03 기준으로 로컬 Playwright 검증 경로는 확보됐다. 헤더/역할 페이지 정리는 localhost에서 좌표와 링크를 확인했으며, 남은 큰 디자인 단계는 별도 phase로 진행한다.
 
@@ -176,12 +176,12 @@ Refero 레퍼런스는 **Amie의 밝은 생산성 툴 톤**을 1순위로 둔다
 
 - 보고/히스토리/운영 단위 관리가 같은 card language를 쓰지만 정보 위계가 다름
 - 관리자 화면은 table/list 성격인데 카드형으로 흩어지기 쉬움
-- 보고 작성/댓글/제출 상태는 activity panel 패턴이 더 적합함
+- 보고 작성/제출 상태는 activity panel 패턴이 더 적합함
 
 개선 방향:
 
 - 관리자: filter toolbar + table/list + detail panel
-- 엔젤 보고: report editor + activity/comment side panel
+- 엔젤 보고: report editor + submission activity panel
 - 제출 상태: chip보다 compact status column으로 정리
 - 새 보고 주차/템플릿 생성은 toolbar primary action으로 이동
 
@@ -331,14 +331,14 @@ Plain에서 가져올 것:
 
 - 멤버 관리: sticky save toolbar, 팀 list, 운영진 role tabs
 - 관리자 히스토리: filter toolbar + table/list density 개선
-- 엔젤 보고: editor + comment/activity side panel
+- 엔젤 보고: editor + submission activity panel
 - 보고 관리자: cycle list + submission status table
 
 검증:
 
 - 멤버 저장 테스트
 - 히스토리 기간 변경 테스트
-- 주간 보고 제출/댓글 테스트
+- 주간 보고 제출/미제출 테스트
 
 ## 6. 검증 루프
 

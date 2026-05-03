@@ -2,15 +2,10 @@ import { loadMemberPreset } from "@/lib/member-store";
 import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
 import {
   type AngelWeeklyReport,
-  countCommentsByReportIds,
   getWeeklyReportCycleById,
   listAngelWeeklyReports,
 } from "@/lib/weekly-report-store";
 import { compareText } from "@/lib/sort-utils";
-
-type ReportWithCommentCount = AngelWeeklyReport & {
-  commentCount: number;
-};
 
 function cleanCycleId(cycleId: string): string {
   const normalized = cycleId.trim();
@@ -25,9 +20,9 @@ function formatOptionalLine(label: string, value: string | null): string | null 
   return normalized ? `  - ${label}: ${normalized}` : null;
 }
 
-function buildSubmittedTeamLines(report: ReportWithCommentCount): string[] {
+function buildSubmittedTeamLines(report: AngelWeeklyReport): string[] {
   return [
-    `- ${report.teamName}: 제출 (${report.angelName}) / 댓글 ${report.commentCount}개`,
+    `- ${report.teamName}: 제출 (${report.angelName})`,
     `  - 팀 현황: ${report.summary}`,
     formatOptionalLine("특이사항", report.notes),
     formatOptionalLine("도움 요청", report.requests),
@@ -51,20 +46,11 @@ export async function buildCycleShareText(
   }
 
   const reports = await listAngelWeeklyReports(cycle.id, operatingUnitSlug);
-  const commentCountByReportId = await countCommentsByReportIds(
-    reports.map((report) => report.id)
-  );
-  const reportsWithCommentCounts: ReportWithCommentCount[] = reports.map(
-    (report) => ({
-      ...report,
-      commentCount: commentCountByReportId.get(report.id) ?? 0,
-    })
-  );
   const reportByTeam = new Map(
-    reportsWithCommentCounts.map((report) => [report.teamName, report])
+    reports.map((report) => [report.teamName, report])
   );
   const presetTeamNames = new Set(memberPreset.teamGroups.map((team) => team.teamName));
-  const extraReports = reportsWithCommentCounts
+  const extraReports = reports
     .filter((report) => !presetTeamNames.has(report.teamName))
     .sort((a, b) => compareText(a.teamName, b.teamName));
 

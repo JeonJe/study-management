@@ -8,6 +8,7 @@ import {
   safeReturnPath,
   textFrom,
 } from "@/app/actions/shared-action-utils";
+import { cohortEntryLoginPath } from "@/lib/cohort-routes";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const password = textFrom(formData, "password").trim();
@@ -25,7 +26,12 @@ export async function loginAction(formData: FormData): Promise<void> {
     if (authScope === "admin") {
       loginParams.set("adminAuth", "invalid");
     } else {
-      loginParams.set("auth", "invalid");
+      redirect(
+        cohortEntryLoginPath(selectedUnit, {
+          auth: "invalid",
+          returnPath: returnPath ?? cohortEntryPath(selectedUnit),
+        })
+      );
     }
     redirect(`/?${loginParams.toString()}`);
   }

@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 const {
-  countCommentsByReportIdsMock,
   getCycleMock,
   listReportsMock,
   loadMemberPresetMock,
 } = vi.hoisted(() => ({
-    countCommentsByReportIdsMock: vi.fn(),
     getCycleMock: vi.fn(),
     listReportsMock: vi.fn(),
     loadMemberPresetMock: vi.fn(),
@@ -17,7 +15,6 @@ vi.mock("@/lib/member-store", () => ({
 }));
 
 vi.mock("@/lib/weekly-report-store", () => ({
-  countCommentsByReportIds: countCommentsByReportIdsMock,
   getWeeklyReportCycleById: getCycleMock,
   listAngelWeeklyReports: listReportsMock,
 }));
@@ -81,19 +78,18 @@ describe("buildCycleShareText", () => {
     );
   });
 
-  it("정상 사이클의 팀별 보고와 댓글 수를 공유 문구로 만든다", async () => {
+  it("정상 사이클의 팀별 보고를 공유 문구로 만든다", async () => {
     getCycleMock.mockResolvedValue(cycle);
     loadMemberPresetMock.mockResolvedValue(memberPreset);
     listReportsMock.mockResolvedValue([report("1팀"), report("2팀")]);
-    countCommentsByReportIdsMock.mockResolvedValue(new Map([["1팀-report", 2]]));
 
     const text = await buildCycleShareText("cycle-1", "loop-pak-4");
 
     expect(text).toContain("[주간 보고] 4기 3주차 엔젤 보고");
     expect(text).toContain("제출 2/2팀");
-    expect(text).toContain("- 1팀: 제출 (애니) / 댓글 2개");
+    expect(text).toContain("- 1팀: 제출 (애니)");
     expect(text).toContain("  - 도움 요청: 장소 안내 필요");
-    expect(text).toContain("- 2팀: 제출 (보라) / 댓글 0개");
+    expect(text).toContain("- 2팀: 제출 (보라)");
     expect(getCycleMock).toHaveBeenCalledWith("cycle-1", "loop-pak-4");
     expect(loadMemberPresetMock).toHaveBeenCalledWith("loop-pak-4");
     expect(listReportsMock).toHaveBeenCalledWith("cycle-1", "loop-pak-4");
@@ -103,7 +99,6 @@ describe("buildCycleShareText", () => {
     getCycleMock.mockResolvedValue(cycle);
     loadMemberPresetMock.mockResolvedValue(memberPreset);
     listReportsMock.mockResolvedValue([]);
-    countCommentsByReportIdsMock.mockResolvedValue(new Map());
 
     const text = await buildCycleShareText("cycle-1", "loop-pak-4");
 
@@ -116,12 +111,11 @@ describe("buildCycleShareText", () => {
     getCycleMock.mockResolvedValue(cycle);
     loadMemberPresetMock.mockResolvedValue(memberPreset);
     listReportsMock.mockResolvedValue([report("1팀")]);
-    countCommentsByReportIdsMock.mockResolvedValue(new Map([["1팀-report", 1]]));
 
     const text = await buildCycleShareText("cycle-1", "loop-pak-4");
 
     expect(text).toContain("제출 1/2팀");
-    expect(text).toContain("- 1팀: 제출 (애니) / 댓글 1개");
+    expect(text).toContain("- 1팀: 제출 (애니)");
     expect(text).toContain("- 2팀: 미제출 / 엔젤 보라");
   });
 });

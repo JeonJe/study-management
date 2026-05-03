@@ -49,6 +49,7 @@ import {
   _resetSchemaStateForTesting,
   assertOperatingUnitAcceptsNewData,
   createOperatingUnitAccessToken,
+  createOperatingUnitRoleAccessToken,
   createOperatingUnit,
   getOperatingUnit,
   ensureOperatingUnitColumn,
@@ -61,6 +62,7 @@ import {
   updateOperatingUnit,
   verifyOperatingUnitAccessCode,
   verifyOperatingUnitAccessToken,
+  verifyOperatingUnitRoleAccessToken,
 } from "@/lib/operating-unit-store";
 
 async function withSkipSchemaCheck(run: () => Promise<void>): Promise<void> {
@@ -131,6 +133,7 @@ describe("operating-unit-store", () => {
     const sql = queryMock.mock.calls.map(([text]) => String(text));
     expect(sql.some((text) => text.includes("create table if not exists public.operating_units"))).toBe(true);
     expect(sql.some((text) => text.includes("add column if not exists access_password_hash text"))).toBe(true);
+    expect(sql.some((text) => text.includes("add column if not exists access_password_plaintext text"))).toBe(true);
     expect(sql.some((text) => text.includes("idx_operating_units_single_default"))).toBe(true);
     expect(sql.some((text) => text.includes("insert into public.operating_units"))).toBe(true);
   });
@@ -358,6 +361,46 @@ describe("operating-unit-store", () => {
     });
   });
 
+  it("creates a unit role token from the stored role hash", async () => {
+    await withSkipSchemaCheck(async () => {
+      const expectedToken = roleTokenFor("loop-pak-4", "admin", "admin-secret");
+      queryMock.mockResolvedValueOnce([
+        {
+          passwordHash: expectedToken,
+          isActive: true,
+        },
+      ]);
+
+      const token = await createOperatingUnitRoleAccessToken(
+        "loop-pak-4",
+        "admin",
+        "admin-secret"
+      );
+
+      expect(token).toBe(expectedToken);
+      const [sql, params] = queryMock.mock.calls.at(-1) as [string, unknown[]];
+      expect(sql).toContain("admin_password_hash");
+      expect(sql).not.toContain("admin-secret");
+      expect(params).toEqual(["loop-pak-4"]);
+    });
+  });
+
+  it("rejects a unit role token when the operating unit is inactive", async () => {
+    await withSkipSchemaCheck(async () => {
+      const token = roleTokenFor("loop-pak-4", "angel", "angel-secret");
+      queryMock.mockResolvedValueOnce([
+        {
+          passwordHash: token,
+          isActive: false,
+        },
+      ]);
+
+      await expect(
+        verifyOperatingUnitRoleAccessToken("loop-pak-4", "angel", token)
+      ).resolves.toBe(false);
+    });
+  });
+
   it("rejects a unit access token when the operating unit is inactive", async () => {
     await withSkipSchemaCheck(async () => {
       const token = tokenFor("loop-pak-4", "unit-secret");
@@ -372,7 +415,7 @@ describe("operating-unit-store", () => {
     });
   });
 
-  it("falls back to APP_PASSWORD while a unit-specific access code is not set", async () => {
+  it("rejects unit access while a unit-specific access code is not set", async () => {
     await withSkipSchemaCheck(async () => {
       queryMock.mockResolvedValueOnce([
         {
@@ -383,7 +426,7 @@ describe("operating-unit-store", () => {
 
       await expect(
         verifyOperatingUnitAccessCode("loop-pak-4", "shared-entry-code")
-      ).resolves.toBe(true);
+      ).resolves.toBe(false);
     });
   });
 
@@ -453,6 +496,11 @@ describe("operating-unit-store", () => {
           isDefault: false,
           isActive: true,
           hasAccessPassword: true,
+          accessPassword: "unit-secret",
+          hasAngelPassword: true,
+          angelPassword: "angel-secret",
+          hasAdminPassword: true,
+          adminPassword: "admin-secret",
           createdAt: "2026-05-01",
           updatedAt: "2026-05-01",
         },
@@ -461,9 +509,11 @@ describe("operating-unit-store", () => {
       formData.set("slug", "loop-pak-4");
       formData.set("name", "4기");
       formData.set("accessPassword", "unit-secret");
+      formData.set("angelPassword", "angel-secret");
+      formData.set("adminPassword", "admin-secret");
 
       await expect(createOperatingUnitAction(formData)).rejects.toThrow(
-        "redirect:/admin/operating-units/loop-pak-4/edit?unit=created"
+        "redirect:/admin/operating-units?unit=created"
       );
 
       const [, params] = queryMock.mock.calls.at(-1) as [string, unknown[]];
@@ -472,6 +522,12 @@ describe("operating-unit-store", () => {
           .update("saturday-meetup:operating-unit:loop-pak-4:unit-secret")
           .digest("hex")
       );
+      expect(params[4]).not.toBe("unit-secret");
+      expect(String(params[4])).toContain("enc:v1:");
+      expect(params[6]).not.toBe("angel-secret");
+      expect(String(params[6])).toContain("enc:v1:");
+      expect(params[8]).not.toBe("admin-secret");
+      expect(String(params[8])).toContain("enc:v1:");
     });
   });
 
@@ -495,7 +551,7 @@ describe("operating-unit-store", () => {
       formData.set("name", "4기");
 
       await expect(updateOperatingUnitAction(formData)).rejects.toThrow(
-        "redirect:/admin/operating-units/loop-pak-4/edit?unit=updated"
+        "redirect:/admin/operating-units?unit=updated"
       );
       expect(revalidatePathMock).toHaveBeenCalledWith("/admin/operating-units");
     });
@@ -517,8 +573,11 @@ describe("operating-unit-store", () => {
 
       const [sql, params] = queryMock.mock.calls.at(-1) as [string, unknown[]];
       expect(sql).toContain("access_password_hash = $2");
+      expect(sql).toContain("access_password_plaintext = $3");
       expect(params[0]).toBe("loop-pak-4");
       expect(params[1]).not.toBe("new-unit-code");
+      expect(params[2]).not.toBe("new-unit-code");
+      expect(String(params[2])).toContain("enc:v1:");
       expect(revalidatePathMock).toHaveBeenCalledWith("/admin/operating-units");
       expect(revalidatePathMock).toHaveBeenCalledWith(
         "/admin/operating-units/loop-pak-4/edit"
@@ -530,5 +589,11 @@ describe("operating-unit-store", () => {
 function tokenFor(slug: string, password: string): string {
   return createHash("sha256")
     .update(`saturday-meetup:operating-unit:${slug}:${password}`)
+    .digest("hex");
+}
+
+function roleTokenFor(slug: string, role: "angel" | "admin", password: string): string {
+  return createHash("sha256")
+    .update(`saturday-meetup:operating-unit:${slug}:${role}:${password}`)
     .digest("hex");
 }

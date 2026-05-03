@@ -14,6 +14,7 @@ type DashboardHeaderProps = {
   unitSlug?: string;
   scopeLabel?: string;
   extraActions?: ReactNode;
+  showTabs?: boolean;
 };
 
 const TAB_ITEMS: { key: DashboardTab; href: string; label: string }[] = [
@@ -43,8 +44,14 @@ export function DashboardHeader({
   unitSlug = "",
   scopeLabel,
   extraActions,
+  showTabs = true,
 }: DashboardHeaderProps) {
   const unitLabel = scopeLabel ?? operatingUnitDisplayName(unitSlug);
+  const visibleTabs = TAB_ITEMS.map((tab) => ({
+    ...tab,
+    label: tab.key === "admin" ? (unitSlug ? "관리자" : "전체관리자") : tab.label,
+  }));
+  const hasTabs = showTabs && visibleTabs.length > 0;
 
   function tabHref(tab: { key: DashboardTab; href: string }): string {
     const href = cohortAwarePath(unitSlug, tab.href);
@@ -100,19 +107,21 @@ export function DashboardHeader({
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} aria-hidden="true" />
                 {unitLabel}
               </span>
-              <nav className="hidden shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
-                {TAB_ITEMS.map((tab) => (
-                  <Link
-                    key={tab.key}
-                    href={tabHref(tab)}
-                    aria-current={activeTab === tab.key ? "page" : undefined}
-                    className="btn-press inline-flex min-h-8 items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition hover:opacity-85"
-                    style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
-                  >
-                    {tab.label}
-                  </Link>
-                ))}
-              </nav>
+              {hasTabs ? (
+                <nav className="hidden shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
+                  {visibleTabs.map((tab) => (
+                    <Link
+                      key={tab.key}
+                      href={tabHref(tab)}
+                      aria-current={activeTab === tab.key ? "page" : undefined}
+                      className="btn-press inline-flex min-h-8 items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition hover:opacity-85"
+                      style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
+                    >
+                      {tab.label}
+                    </Link>
+                  ))}
+                </nav>
+              ) : null}
 
               {extraActions}
 
@@ -131,23 +140,25 @@ export function DashboardHeader({
               </form>
             </div>
 
-            <nav className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border p-1 sm:hidden" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
-              {TAB_ITEMS.map((tab) => (
-                <Link
-                  key={`mobile-${tab.key}`}
-                  href={tabHref(tab)}
-                  aria-current={activeTab === tab.key ? "page" : undefined}
-                  className="btn-press inline-flex min-h-8 shrink-0 items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition hover:opacity-85"
-                  style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
-                >
-                  {tab.label}
-                </Link>
-              ))}
-            </nav>
+            {hasTabs ? (
+              <nav className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border p-1 sm:hidden" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }} aria-label="대시보드 탭 이동">
+                {visibleTabs.map((tab) => (
+                  <Link
+                    key={`mobile-${tab.key}`}
+                    href={tabHref(tab)}
+                    aria-current={activeTab === tab.key ? "page" : undefined}
+                    className="btn-press inline-flex min-h-8 shrink-0 items-center rounded-md border px-3 py-1.5 text-xs font-semibold transition hover:opacity-85"
+                    style={activeTab === tab.key ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
           </div>
         </div>
       </header>
-      <div className="h-[158px] sm:h-[82px]" aria-hidden="true" />
+      <div className={hasTabs ? "h-[158px] sm:h-[82px]" : "h-[82px]"} aria-hidden="true" />
     </>
   );
 }

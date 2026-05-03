@@ -6,8 +6,9 @@ import {
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
 import { createWeeklyReportCycleAction } from "@/app/weekly-report-actions";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
+import { loadMemberPreset } from "@/lib/member-store";
 import {
   canOpenRolePage,
   getRolePage,
@@ -38,17 +39,24 @@ function singleParam(value: string | string[] | undefined): string {
 
 async function safeListTemplates(unitSlug: string): Promise<{
   templates: WeeklyReportTemplate[];
+  teamCount: number;
   error: boolean;
 }> {
   try {
+    const [templates, preset] = await Promise.all([
+      listWeeklyReportTemplates(unitSlug),
+      loadMemberPreset(unitSlug),
+    ]);
     return {
-      templates: await listWeeklyReportTemplates(unitSlug),
+      templates,
+      teamCount: preset.teamGroups.length,
       error: false,
     };
   } catch (error) {
     console.error("Failed to load weekly report templates", error);
     return {
       templates: [],
+      teamCount: 0,
       error: true,
     };
   }
@@ -56,10 +64,12 @@ async function safeListTemplates(unitSlug: string): Promise<{
 
 function CycleForm({
   templates,
+  teamCount,
   loadError,
   unitSlug,
 }: {
   templates: WeeklyReportTemplate[];
+  teamCount: number;
   loadError: boolean;
   unitSlug: string;
 }) {
@@ -89,8 +99,14 @@ function CycleForm({
         </div>
 
         {loadError ? (
-          <div className="mt-5 rounded-2xl border p-4 text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+          <div className="mt-5 rounded-xl border p-4 text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
             템플릿을 불러오지 못했습니다. 템플릿 없이 주차를 만들 수 있습니다.
+          </div>
+        ) : null}
+
+        {!loadError && teamCount === 0 ? (
+          <div className="mt-5 rounded-xl border p-4 text-sm leading-6" style={{ borderColor: "#fde68a", backgroundColor: "#fffbeb", color: "#92400e" }}>
+            등록된 팀이 없습니다. 보고 주차는 만들 수 있지만, 팀을 추가한 뒤 이 주차의 보고 대상이 현재 팀 목록 기준으로 표시됩니다.
           </div>
         ) : null}
 
@@ -162,7 +178,7 @@ function CycleForm({
             안내 문구
             <textarea
               name="prompt"
-              placeholder="비워두면 선택한 템플릿의 작성 기준을 사용합니다."
+              placeholder="비워두면 선택한 템플릿의 안내를 사용합니다."
               rows={4}
               className={TEXTAREA_CLASS}
               style={{ borderColor: "var(--line)", color: "var(--ink)" }}
@@ -187,15 +203,18 @@ function CycleForm({
 export default async function NewWeeklyReportCyclePage({
   searchParams,
 }: NewCyclePageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/admin/reports/cycles/new") }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -208,12 +227,13 @@ export default async function NewWeeklyReportCyclePage({
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, "/admin/reports/cycles/new")}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    const unitSlug = singleParam(query.unit);
-    const { templates, error } = await safeListTemplates(unitSlug);
-    content = <CycleForm templates={templates} loadError={error} unitSlug={unitSlug} />;
+    const { templates, teamCount, error } = await safeListTemplates(unitSlug);
+    content = <CycleForm templates={templates} teamCount={teamCount} loadError={error} unitSlug={unitSlug} />;
   }
 
   return (
@@ -221,7 +241,7 @@ export default async function NewWeeklyReportCyclePage({
       activeRole="admin"
       title="보고 주차"
       summary="주차별 엔젤 보고를 생성합니다."
-      unitSlug={singleParam(query.unit)}
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

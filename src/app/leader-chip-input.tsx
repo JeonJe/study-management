@@ -6,6 +6,7 @@ type LeaderChipInputProps = {
   name: string;
   initialLeaders?: string[];
   placeholder?: string;
+  required?: boolean;
 };
 
 function normalizeNames(values: string[]): string[] {
@@ -28,6 +29,7 @@ export function LeaderChipInput({
   name,
   initialLeaders = [],
   placeholder = "방장 이름 입력 후 추가",
+  required = false,
 }: LeaderChipInputProps) {
   const [leaders, setLeaders] = useState<string[]>(normalizeNames(initialLeaders));
   const [draft, setDraft] = useState("");
@@ -48,39 +50,30 @@ export function LeaderChipInput({
   }
 
   return (
-    <div className="grid gap-2">
-      <input type="hidden" name={name} value={leaders.join(", ")} />
+    <div>
+      <input type="hidden" name={name} value={normalizeNames([...leaders, draft]).join(", ")} />
 
       <div
-        className="flex min-h-10 flex-wrap gap-1.5 rounded-xl border bg-white px-2 py-2"
-        style={{ borderColor: "var(--line)" }}
+        className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border bg-white px-2 py-1.5 focus-within:ring-2"
+        style={inputStyle}
       >
-        {leaders.length > 0 ? (
-          leaders.map((leader) => (
-            <span
-              key={`leader-chip-${leader}`}
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium"
-              style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}
+        {leaders.map((leader) => (
+          <span
+            key={`leader-chip-${leader}`}
+            className="inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs font-medium"
+            style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}
+          >
+            {leader}
+            <button
+              type="button"
+              aria-label={`${leader} 삭제`}
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[11px] leading-none transition hover:bg-black/10"
+              onClick={() => removeLeader(leader)}
             >
-              {leader}
-              <button
-                type="button"
-                aria-label={`${leader} 삭제`}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[11px] leading-none transition hover:bg-black/10"
-                onClick={() => removeLeader(leader)}
-              >
-                ×
-              </button>
-            </span>
-          ))
-        ) : (
-          <span className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            등록된 방장이 없어요
+              ×
+            </button>
           </span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
+        ))}
         <input
           value={draft}
           data-leader-input="true"
@@ -91,13 +84,14 @@ export function LeaderChipInput({
             event.preventDefault();
             addLeaders(draft);
           }}
-          className="h-10 min-w-0 flex-1 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
-          style={inputStyle}
+          required={required && leaders.length === 0}
+          className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm outline-none"
+          style={{ color: "var(--ink)" }}
           placeholder={placeholder}
         />
         <button
           type="button"
-          className="btn-press h-10 rounded-xl border px-3 text-xs font-semibold"
+          className="btn-press h-8 rounded-lg border px-3 text-xs font-semibold"
           style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface)" }}
           onClick={() => addLeaders(draft)}
         >

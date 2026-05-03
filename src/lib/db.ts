@@ -80,9 +80,9 @@ async function getPool(): Promise<PgPool> {
   const nextPool = new Pool({
     connectionString: getNormalizedDatabaseUrl(),
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    max: 2,
     connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000,
+    idleTimeoutMillis: 10000,
   });
 
   pool = nextPool as unknown as PgPool;

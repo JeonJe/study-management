@@ -23,8 +23,11 @@ export function RoleShell({
   title,
   unitSlug = "",
   scopeLabel,
+  showRoleNav = true,
   children,
 }: RoleShellProps) {
+  const showTabs = showRoleNav && !(activeRole === "admin" && !unitSlug);
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-10">
       <DashboardHeader
@@ -32,6 +35,7 @@ export function RoleShell({
         activeTab={ROLE_DASHBOARD_TAB[activeRole]}
         unitSlug={unitSlug}
         scopeLabel={scopeLabel}
+        showTabs={showTabs}
       />
 
       {children}

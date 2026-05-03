@@ -2,11 +2,11 @@ import {
   loginAction,
 } from "@/app/actions";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { DatePicker } from "@/app/date-picker";
 import { DashboardHeader } from "@/app/dashboard-header";
 import { OfflineStudyCaptureButton } from "@/app/offline-study-capture-button";
-import { OfflineStudyCopyTextButton } from "@/app/offline-study-copy-text-button";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import { pickNearestUpcomingIsoDate, toKstIsoDate } from "@/lib/date-utils";
 import { extractHttpUrl } from "@/lib/location-utils";
 import { normalizeMemberName, toTeamLabel, withTeamLabel } from "@/lib/member-label-utils";
@@ -28,9 +28,8 @@ import {
   cachedListRsvpsForMeetings,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cleanReturnPath, cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { dataLoadErrorMessage } from "@/lib/ui-error-messages";
-import { buildOfflineStudyShareText } from "@/lib/share-text";
 import {
   PARTICIPANT_ROLE_META,
   PARTICIPANT_ROLE_ORDER,
@@ -113,7 +112,7 @@ function LeaderChips({ leaders }: { leaders?: string[] | null }) {
   );
 }
 
-async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[]> {
+export async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[]> {
   try {
     const units = await listOperatingUnits();
     const activeUnits = units.filter((unit) => unit.isActive);
@@ -135,16 +134,130 @@ async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[]> {
 
 type EntryOperatingUnit = Pick<OperatingUnit, "slug" | "name" | "description">;
 
-function LoginScreen({
+function AdminLoginModal({ adminAuthStatus }: { adminAuthStatus: string }) {
+  const adminAuthMessage =
+    adminAuthStatus === "invalid"
+      ? "관리자 코드가 맞지 않습니다."
+      : "";
+  const adminModalOpen = adminAuthStatus === "open" || Boolean(adminAuthMessage);
+
+  return (
+    <>
+      <style>{`
+        .admin-modal {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          background: rgba(15, 23, 42, 0.42);
+          backdrop-filter: blur(10px);
+        }
+        .admin-modal.is-open {
+          display: flex;
+        }
+        .admin-modal-panel {
+          position: relative;
+          width: min(100%, 360px);
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 1.25rem;
+          padding: 1.35rem;
+          box-shadow: 0 24px 56px rgba(15, 23, 42, 0.22);
+        }
+        .admin-modal-close {
+          position: absolute;
+          top: 0.8rem;
+          right: 0.9rem;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          color: var(--ink-muted);
+          font-size: 22px;
+          line-height: 1;
+          text-decoration: none;
+          transition: background 0.15s, color 0.15s;
+        }
+        .admin-modal-close:hover {
+          background: var(--surface-muted);
+          color: var(--ink);
+        }
+      `}</style>
+
+      <div
+        id="admin-login-modal"
+        className={`admin-modal${adminModalOpen ? " is-open" : ""}`}
+      >
+        <div
+          className="admin-modal-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-login-title"
+        >
+          <Link href="/" className="admin-modal-close" aria-label="전체관리자 로그인 닫기">
+            ×
+          </Link>
+          <h2 id="admin-login-title" style={{
+            fontFamily: "var(--font-heading), sans-serif",
+            fontSize: "1.25rem",
+            lineHeight: 1.2,
+            margin: "0 2rem 0.35rem 0",
+            color: "var(--ink)",
+          }}>
+            전체관리자
+          </h2>
+          <p style={{ margin: "0 0 1rem", color: "var(--ink-muted)", fontSize: "13px" }}>
+            기수와 참가자 입장 설정을 관리하기 위한 코드입니다.
+          </p>
+          <form action={loginAction} className="grid gap-3">
+            <input type="hidden" name="authScope" value="admin" />
+            <input type="hidden" name="returnPath" value="/admin" />
+            <label htmlFor="adminPassword" className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
+              관리자 코드
+              <input
+                id="adminPassword"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="관리자 코드 입력"
+                className="login-field"
+                autoFocus={adminModalOpen}
+                style={adminAuthMessage ? { borderColor: "var(--danger)" } : undefined}
+              />
+            </label>
+            {adminAuthMessage ? (
+              <p style={{ fontSize: "12px", color: "var(--danger)", margin: 0 }}>
+                {adminAuthMessage}
+              </p>
+            ) : null}
+            <button type="submit" className="login-submit">
+              관리자 입장
+            </button>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function LoginScreen({
   authStatus,
   adminAuthStatus,
   units,
   selectedUnitSlug,
+  returnPath,
 }: {
   authStatus: string;
   adminAuthStatus: string;
   units: EntryOperatingUnit[];
   selectedUnitSlug: string;
+  returnPath?: string;
 }) {
   const authMessage =
     authStatus === "invalid"
@@ -152,16 +265,13 @@ function LoginScreen({
       : authStatus === "required"
         ? "세션이 만료됐습니다."
         : "";
-  const adminAuthMessage =
-    adminAuthStatus === "invalid"
-      ? "관리자 코드가 맞지 않습니다."
-      : "";
   const selectedUnit =
     units.find((unit) => unit.slug === selectedUnitSlug) ?? units[0] ?? {
       slug: MIGRATED_OPERATING_UNIT_SLUG,
       name: MIGRATED_OPERATING_UNIT_NAME,
       description: null,
     };
+  const safeLoginReturnPath = returnPath ? cleanReturnPath(returnPath) : cohortAwarePath(selectedUnit.slug, "/");
 
   return (
     <main style={{
@@ -214,7 +324,7 @@ function LoginScreen({
         }
         .login-submit:hover { opacity: 0.9; }
         .login-submit:active { transform: scale(0.98); }
-        .admin-entry-link {
+        .login-secondary-link {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -226,51 +336,7 @@ function LoginScreen({
           text-underline-offset: 4px;
           transition: opacity 0.15s;
         }
-        .admin-entry-link:hover { opacity: 0.8; }
-        .admin-modal {
-          position: fixed;
-          inset: 0;
-          z-index: 60;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          padding: 1.5rem;
-          background: rgba(15, 23, 42, 0.42);
-          backdrop-filter: blur(10px);
-        }
-        .admin-modal:target,
-        .admin-modal.is-open {
-          display: flex;
-        }
-        .admin-modal-panel {
-          position: relative;
-          width: min(100%, 360px);
-          background: var(--surface);
-          border: 1px solid var(--line);
-          border-radius: 1.25rem;
-          padding: 1.35rem;
-          box-shadow: 0 24px 56px rgba(15, 23, 42, 0.22);
-        }
-        .admin-modal-close {
-          position: absolute;
-          top: 0.8rem;
-          right: 0.9rem;
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          color: var(--ink-muted);
-          font-size: 22px;
-          line-height: 1;
-          text-decoration: none;
-          transition: background 0.15s, color 0.15s;
-        }
-        .admin-modal-close:hover {
-          background: var(--surface-muted);
-          color: var(--ink);
-        }
+        .login-secondary-link:hover { opacity: 0.8; }
       `}</style>
 
       <div
@@ -292,14 +358,12 @@ function LoginScreen({
         }}>
           LOOPERS MEETUP
         </h1>
-        <p className="li li-d1" style={{ margin: "0 0 1.8rem", color: "var(--ink-muted)", fontSize: "13px" }}>
-          이름을 선택하고 입장하세요.
-        </p>
-
-        <form action={loginAction} className="li li-d2" style={{ display: "grid", gap: "1.25rem" }}>
+        <form action={loginAction} className="li li-d2" style={{ display: "grid", gap: "1.25rem", marginTop: "1.8rem" }}>
           <input type="hidden" name="authScope" value="unit" />
+          <input type="hidden" name="selectedUnit" value={selectedUnit.slug} />
+          <input type="hidden" name="returnPath" value={safeLoginReturnPath} />
           <section style={{ display: "grid", gap: "0.5rem" }}>
-            <label htmlFor="selectedUnit" style={{
+            <span style={{
               fontSize: "11px",
               fontWeight: 600,
               letterSpacing: "0.1em",
@@ -308,21 +372,14 @@ function LoginScreen({
               margin: 0,
             }}>
               이름
-            </label>
-            <select
-              id="selectedUnit"
-              name="selectedUnit"
-              defaultValue={selectedUnit.slug}
+            </span>
+            <div
               className="login-field"
-              required
+              aria-label="선택한 기수"
             >
-              {units.map((unit) => (
-                <option key={unit.slug} value={unit.slug}>
-                  {unit.name}
-                  {unit.description ? ` - ${unit.description}` : ""}
-                </option>
-              ))}
-            </select>
+              {selectedUnit.name}
+              {selectedUnit.description ? ` - ${selectedUnit.description}` : ""}
+            </div>
           </section>
           <div style={{ display: "grid", gap: "0.5rem" }}>
             <label htmlFor="password" style={{
@@ -357,65 +414,13 @@ function LoginScreen({
         </form>
 
         <div className="li li-d2" style={{ marginTop: "1rem", textAlign: "center" }}>
-          <a href="#admin-login-modal" className="admin-entry-link">
-            전체 관리자
-          </a>
+          <Link href="/" className="login-secondary-link">
+            처음으로 돌아가기
+          </Link>
         </div>
       </div>
 
-      <div
-        id="admin-login-modal"
-        className={`admin-modal${adminAuthMessage ? " is-open" : ""}`}
-      >
-        <div
-          className="admin-modal-panel"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="admin-login-title"
-        >
-          <a href="#" className="admin-modal-close" aria-label="전체 관리자 로그인 닫기">
-            ×
-          </a>
-          <h2 id="admin-login-title" style={{
-            fontFamily: "var(--font-heading), sans-serif",
-            fontSize: "1.25rem",
-            lineHeight: 1.2,
-            margin: "0 2rem 0.35rem 0",
-            color: "var(--ink)",
-          }}>
-            전체 관리자
-          </h2>
-          <p style={{ margin: "0 0 1rem", color: "var(--ink-muted)", fontSize: "13px" }}>
-            목록 생성과 전체 설정 관리를 위한 코드입니다.
-          </p>
-          <form action={loginAction} className="grid gap-3">
-            <input type="hidden" name="authScope" value="admin" />
-            <input type="hidden" name="returnPath" value="/admin" />
-            <label htmlFor="adminPassword" className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
-              관리자 코드
-              <input
-                id="adminPassword"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="관리자 코드 입력"
-                className="login-field"
-                autoFocus={Boolean(adminAuthMessage)}
-                style={adminAuthMessage ? { borderColor: "var(--danger)" } : undefined}
-              />
-            </label>
-            {adminAuthMessage ? (
-              <p style={{ fontSize: "12px", color: "var(--danger)", margin: 0 }}>
-                {adminAuthMessage}
-              </p>
-            ) : null}
-            <button type="submit" className="login-submit">
-              관리자 입장
-            </button>
-          </form>
-        </div>
-      </div>
+      <AdminLoginModal adminAuthStatus={adminAuthStatus} />
     </main>
   );
 }
@@ -423,62 +428,100 @@ function LoginScreen({
 function UnitSelectionScreen({
   units,
   basePath,
+  adminAuthStatus,
 }: {
   units: EntryOperatingUnit[];
   basePath: "/" | "/loop-pak";
+  adminAuthStatus: string;
 }) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:px-8">
-      <section className="app-section w-full p-4 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-4" style={{ borderColor: "var(--line)" }}>
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 sm:px-6 lg:px-8">
+      <style>{`
+        .login-field {
+          width: 100%;
+          box-sizing: border-box;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 0.9rem;
+          padding: 0.72rem 0.8rem;
+          font-size: 15px;
+          font-family: inherit;
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .login-field::placeholder { color: var(--ink-muted); }
+        .login-field:focus {
+          border-color: rgba(13, 127, 242, 0.4);
+          box-shadow: 0 0 0 3px rgba(13, 127, 242, 0.14);
+        }
+        .login-submit {
+          width: 100%;
+          height: 48px;
+          background: var(--accent);
+          color: var(--surface);
+          border: none;
+          border-radius: 999px;
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          font-family: inherit;
+          cursor: pointer;
+          transition: opacity 0.15s, transform 0.15s;
+          box-shadow: 0 10px 20px rgba(13, 127, 242, 0.28);
+        }
+        .login-submit:hover { opacity: 0.9; }
+        .login-submit:active { transform: scale(0.98); }
+      `}</style>
+      <section className="w-full">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em]" style={{ color: "var(--ink-muted)" }}>
               LOOPERS MEETUP
             </p>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl" style={{ color: "var(--ink)" }}>
-              운영 단위 선택
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl" style={{ color: "var(--ink)" }}>
+              참여할 기수
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              운영 단위를 선택하면 해당 공간의 루프팩, 스터디, 뒷풀이, 엔젤, 관리자 화면을 바로 사용할 수 있습니다.
-            </p>
           </div>
           <Link
-            href="/admin"
-            className="inline-flex h-10 shrink-0 items-center rounded-xl border px-3 text-sm font-bold"
-            style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}
+            href="/?adminAuth=open"
+            className="inline-flex shrink-0 items-center border-b pb-0.5 text-sm font-bold transition hover:opacity-70"
+            style={{ borderColor: "var(--ink-muted)", color: "var(--ink-muted)" }}
           >
-            전체 관리자
+            전체관리자
           </Link>
         </div>
 
-        <div className="mt-4 max-h-[62vh] overflow-y-auto pr-1">
-          <div className="grid gap-3 md:grid-cols-2">
-            {units.map((unit) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {units.map((unit) => {
+            const returnPath = cohortAwarePath(unit.slug, basePath);
+            return (
               <Link
                 key={unit.slug}
-                href={cohortAwarePath(unit.slug, basePath)}
-                className="group flex min-h-28 items-start justify-between gap-3 rounded-2xl border bg-white px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+                href={cohortEntryLoginPath(unit.slug, { returnPath })}
+                className="group flex min-h-44 flex-col justify-between rounded-3xl border bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
                 style={{ borderColor: "var(--line)" }}
               >
-                <div className="min-w-0">
-                  <h2 className="truncate text-base font-extrabold" style={{ color: "var(--ink)" }}>
+                <div>
+                  <h2 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--ink)" }}>
                     {unit.name}
                   </h2>
-                  <p className="mt-1 truncate text-sm" style={{ color: "var(--ink-muted)" }}>
-                    {unit.description || "루프팩, 스터디, 뒷풀이 관리"}
+                  <p className="mt-3 line-clamp-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+                    {unit.description || "Loopers Meetup"}
                   </p>
                 </div>
                 <span
-                  className="mt-0.5 shrink-0 rounded-lg border px-3 py-1 text-xs font-bold transition group-hover:border-transparent"
-                  style={{ borderColor: "rgba(13, 127, 242, 0.24)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
+                  className="mt-8 inline-flex h-10 w-fit items-center rounded-full px-4 text-sm font-extrabold text-white transition group-hover:opacity-90"
+                  style={{ backgroundColor: "var(--accent)" }}
                 >
-                  입장
+                  입장하기
                 </span>
               </Link>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </section>
+      <AdminLoginModal adminAuthStatus={adminAuthStatus} />
     </main>
   );
 }
@@ -646,11 +689,13 @@ function MeetingCard({
   teamLabelByMemberName: Map<string, string>;
 }) {
   const displayParticipantName = (row: RsvpRecord): string => withTeamLabel(row.name, teamLabelByMemberName);
+  const confirmedRsvps = rsvps.filter((row) => row.status === "confirmed");
+  const waitlistCount = rsvps.filter((row) => row.status === "waitlist").length;
   const groupedByRole = new Map<ParticipantRole, RsvpRecord[]>();
   for (const role of PARTICIPANT_ROLE_ORDER) {
     groupedByRole.set(role, []);
   }
-  for (const row of rsvps) {
+  for (const row of confirmedRsvps) {
     const existing = groupedByRole.get(row.role) ?? [];
     existing.push(row);
     groupedByRole.set(row.role, existing);
@@ -712,11 +757,17 @@ function MeetingCard({
 
         <div className="relative z-20 flex min-w-[140px] shrink-0 flex-col items-end gap-2 sm:ml-auto">
           <div className="metric-row justify-end">
-            {[
-              { label: "총참여", value: meeting.totalCount, color: "var(--ink)" },
-              { label: "멤버", value: meeting.studentCount, color: "#15803d" },
-              { label: "운영진", value: meeting.operationCount, color: "#1d4ed8" },
-            ].map((item) => (
+            {(meeting.capacity !== null
+              ? [
+                  { label: "확정", value: `${meeting.totalCount}/${meeting.capacity}`, color: "var(--ink)" },
+                  { label: "대기", value: waitlistCount, color: "var(--accent)" },
+                  { label: "운영진", value: meeting.operationCount, color: "#1d4ed8" },
+                ]
+              : [
+                  { label: "멤버", value: meeting.studentCount, color: "#15803d" },
+                  { label: "운영진", value: meeting.operationCount, color: "#1d4ed8" },
+                  { label: "전체 확정", value: meeting.totalCount, color: "var(--ink)" },
+                ]).map((item) => (
               <span
                 key={`${meeting.id}-${item.label}`}
                 className="meta-chip"
@@ -737,7 +788,7 @@ function MeetingCard({
           className="role-list-panel p-3"
         >
           <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#166534" }}>
-            참여자
+            확정 인원
           </p>
 
           {visibleRoleGroups.length > 0 ? (
@@ -768,7 +819,7 @@ function MeetingCard({
             </div>
           ) : (
             <p className="mt-2 text-xs" style={{ color: "var(--ink-muted)" }}>
-              등록된 참여자 없음
+              확정된 인원이 없습니다.
             </p>
           )}
         </section>
@@ -780,7 +831,7 @@ function MeetingCard({
 
 const STAT_CONFIG = [
   { label: "모임 수", suffix: "개", accent: "var(--accent)" },
-  { label: "총 참여", suffix: "명", accent: "#0369a1" },
+  { label: "확정", suffix: "명", accent: "#0369a1" },
   { label: "멤버", suffix: "명", accent: "#15803d" },
   { label: "운영진", suffix: "명", accent: "#1d4ed8" },
 ] as const;
@@ -794,27 +845,28 @@ export async function MeetupDashboard({
   meetingKind,
 }: MeetupDashboardProps) {
   const params = await searchParams;
-  const authStatus = singleParam(params.auth);
   const adminAuthStatus = singleParam(params.adminAuth);
   const requestDate = singleParam(params.date);
   const selectedUnitSlug = singleParam(params.unit);
 
-  const authenticated = await isAuthenticated();
-  if (!authenticated) {
+  if (!selectedUnitSlug) {
     const units = await safeListEntryOperatingUnits();
     return (
-      <LoginScreen
-        authStatus={authStatus}
-        adminAuthStatus={adminAuthStatus}
+      <UnitSelectionScreen
         units={units}
-        selectedUnitSlug={selectedUnitSlug}
+        basePath={basePath}
+        adminAuthStatus={adminAuthStatus}
       />
     );
   }
 
-  if (!selectedUnitSlug) {
-    const units = await safeListEntryOperatingUnits();
-    return <UnitSelectionScreen units={units} basePath={basePath} />;
+  const authenticatedForUnit = await isAuthenticatedForUnit(selectedUnitSlug);
+  if (!authenticatedForUnit) {
+    const fallbackReturnPath = cohortAwarePath(selectedUnitSlug, basePath);
+    const returnPath = requestDate
+      ? `${fallbackReturnPath}?date=${encodeURIComponent(requestDate)}`
+      : fallbackReturnPath;
+    redirect(cohortEntryLoginPath(selectedUnitSlug, { auth: "required", returnPath }));
   }
 
   let meetings: MeetingSummary[] = [];
@@ -874,15 +926,6 @@ export async function MeetupDashboard({
   const dayStudentCount = meetingsOnDate.reduce((sum, meeting) => sum + meeting.studentCount, 0);
   const dayOperationCount = meetingsOnDate.reduce((sum, meeting) => sum + meeting.operationCount, 0);
   const statValues = [meetingsOnDate.length, dayTotalCount, dayStudentCount, dayOperationCount];
-  const shareText =
-    !loadError && meetingsOnDate.length > 0
-      ? buildOfflineStudyShareText({
-          selectedDate,
-          meetingsOnDate,
-          rsvpsByMeeting,
-          teamLabelByMemberName,
-        })
-      : "";
   const resolvedBasePath = cohortAwarePath(selectedUnitSlug, basePath);
 
   return (
@@ -945,7 +988,6 @@ export async function MeetupDashboard({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold" style={{ color: "var(--ink)" }}>참여 현황</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <OfflineStudyCopyTextButton textToCopy={shareText} linkPath={`${resolvedBasePath}?date=${encodeURIComponent(selectedDate)}`} />
               <OfflineStudyCaptureButton targetId={captureTargetId} />
             </div>
           </div>

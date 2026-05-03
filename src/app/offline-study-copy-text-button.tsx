@@ -70,7 +70,7 @@ export function OfflineStudyCopyTextButton({ textToCopy, linkPath }: OfflineStud
       type="button"
       onClick={handleCopy}
       disabled={copyState === "copying"}
-      className="btn-press inline-flex h-9 items-center rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-70"
+      className="btn-press inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70"
       style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface)" }}
       data-share-text-button="true"
     >

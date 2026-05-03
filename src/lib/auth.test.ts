@@ -117,10 +117,10 @@ describe("auth", () => {
     );
   });
 
-  it("accepts a global admin auth cookie for any unit", async () => {
+  it("does not accept a global admin auth cookie for unit entry", async () => {
     cookieGetMock.mockReturnValue({ value: globalToken("global-admin-code") });
 
-    await expect(isAuthenticatedForUnit("loop-pak-4")).resolves.toBe(true);
+    await expect(isAuthenticatedForUnit("loop-pak-4")).resolves.toBe(false);
 
     expect(verifyOperatingUnitAccessTokenMock).not.toHaveBeenCalled();
   });

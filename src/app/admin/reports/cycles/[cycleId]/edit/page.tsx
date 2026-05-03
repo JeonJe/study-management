@@ -6,8 +6,8 @@ import {
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
 import { updateWeeklyReportCycleAction } from "@/app/weekly-report-actions";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -193,7 +193,7 @@ function EditCycleForm({
               name="prompt"
               rows={4}
               defaultValue={cycle.prompt ?? ""}
-              placeholder="비워두면 선택한 템플릿의 작성 기준을 사용합니다."
+              placeholder="비워두면 선택한 템플릿의 안내를 사용합니다."
               className={TEXTAREA_CLASS}
               style={{ borderColor: "var(--line)", color: "var(--ink)" }}
             />
@@ -218,16 +218,19 @@ export default async function EditWeeklyReportCyclePage({
   params,
   searchParams,
 }: EditCyclePageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const [routeParams, query] = await Promise.all([params, searchParams]);
+  const unitSlug = singleParam(query.unit);
+  const editPath = `/admin/reports/cycles/${encodeURIComponent(routeParams.cycleId)}/edit`;
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, routeParams, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, editPath) }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -240,10 +243,11 @@ export default async function EditWeeklyReportCyclePage({
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, editPath)}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    const unitSlug = singleParam(query.unit);
     const data = await safeLoadCycleData(routeParams.cycleId, unitSlug);
     content = (
       <EditCycleForm
@@ -260,7 +264,7 @@ export default async function EditWeeklyReportCyclePage({
       activeRole="admin"
       title="보고 주차"
       summary="주간 보고 내용을 수정합니다."
-      unitSlug={singleParam(query.unit)}
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

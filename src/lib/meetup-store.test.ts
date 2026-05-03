@@ -18,6 +18,7 @@ import {
   MAX_MEETING_CAPACITY,
   parseCapacityInput,
   promoteWaitlistedRsvp,
+  moveRsvpToWaitlist,
   updateMeeting,
 } from "@/lib/meetup-store";
 
@@ -219,19 +220,20 @@ describe("meetup-store meeting password flows", () => {
     expect(params).toEqual(["meeting-1", ""]);
   });
 
-  it("locks the meeting and assigns waitlist status from confirmed capacity", async () => {
+  it("locks the meeting and confirms only the remaining capacity when capacity is set", async () => {
     queryMock.mockResolvedValueOnce([{ changedCount: 2 }]);
 
     await createRsvpsBulk("meeting-1", "student", ["민수", "지수"], "정원 테스트");
 
     const [sql] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("for update");
-    expect(sql).toContain("where coalesce(r.status, 'confirmed') = 'confirmed'");
-    expect(sql).toContain("with ordinality");
-    expect(sql).not.toContain("row_number() over ()");
+    expect(sql).toContain("row_number() over () as position");
+    expect(sql).toContain("confirmed_count as");
     expect(sql).toContain("insert into public.rsvps (id, meeting_id, name, role, status, note)");
     expect(sql).toContain("when ml.capacity is null then 'confirmed'");
+    expect(sql).toContain("when cc.count + i.position <= ml.capacity then 'confirmed'");
     expect(sql).toContain("else 'waitlist'");
+    expect(sql).not.toContain("when i.role <> 'student'");
   });
 
   it("promotes a waitlisted RSVP only when confirmed capacity remains", async () => {
@@ -242,9 +244,22 @@ describe("meetup-store meeting password flows", () => {
     const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("for update");
     expect(sql).toContain("where coalesce(r.status, 'confirmed') = 'confirmed'");
+    expect(sql).not.toContain("and r.role = 'student'");
     expect(sql).toContain("r.status = 'waitlist'");
     expect(sql).toContain("cc.count < ml.capacity");
     expect(sql).toContain("set status = 'confirmed'");
+    expect(params).toEqual(["meeting-1", "rsvp-1"]);
+  });
+
+  it("moves a confirmed RSVP back to waitlist", async () => {
+    queryMock.mockResolvedValueOnce([{ moved: true }]);
+
+    await expect(moveRsvpToWaitlist("meeting-1", "rsvp-1")).resolves.toBe(true);
+
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("set status = 'waitlist'");
+    expect(sql).toContain("coalesce(status, 'confirmed') = 'confirmed'");
+    expect(sql).not.toContain("and role = 'student'");
     expect(params).toEqual(["meeting-1", "rsvp-1"]);
   });
 });

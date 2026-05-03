@@ -1,20 +1,21 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  RoleAccessRequired,
-  RoleNotConfigured,
-} from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
+import { ToastNotice } from "@/app/toast-notice";
 import { isGlobalAuthenticated } from "@/lib/auth";
-import {
-  canOpenRolePage,
-  getRolePage,
-} from "@/lib/role-page";
-import {
-  getConfiguredRolePages,
-  getCurrentRolePageRole,
-} from "@/lib/role-session";
 import { type OperatingUnit, listOperatingUnits } from "@/lib/operating-unit-store";
+
+type OperatingUnitsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function singleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+}
 
 async function safeListOperatingUnits(): Promise<{ units: OperatingUnit[]; error: boolean }> {
   try {
@@ -29,9 +30,11 @@ async function safeListOperatingUnits(): Promise<{ units: OperatingUnit[]; error
 function OperatingUnitsPanel({
   units,
   error,
+  status,
 }: {
   units: OperatingUnit[];
   error: boolean;
+  status: string;
 }) {
   if (error) {
     return (
@@ -49,15 +52,23 @@ function OperatingUnitsPanel({
     );
   }
 
+  const toastMessage =
+    status === "created"
+      ? "생성 완료"
+      : status === "updated"
+        ? "수정 완료"
+        : "";
+
   return (
     <section className="grid gap-4">
+      {toastMessage ? <ToastNotice message={toastMessage} /> : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-extrabold" style={{ color: "var(--ink)" }}>
-            전체 목록
+            기수 목록
           </h2>
           <p className="mt-1 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-            이름, 주소, 입장 코드는 각 항목의 편집 화면에서 관리합니다.
+            기수 이름, 접속 주소, 참가자 입장 코드를 관리합니다.
           </p>
         </div>
         <Link
@@ -65,7 +76,7 @@ function OperatingUnitsPanel({
           className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"
           style={{ backgroundColor: "var(--accent)" }}
         >
-          새 항목 만들기
+          새 기수 만들기
         </Link>
       </div>
 
@@ -77,7 +88,7 @@ function OperatingUnitsPanel({
                 className="px-5 py-3 text-left font-bold"
                 style={{ color: "var(--ink-muted)" }}
               >
-                주소 식별자
+                접속 주소
               </th>
               <th
                 className="px-5 py-3 text-left font-bold"
@@ -92,7 +103,7 @@ function OperatingUnitsPanel({
                 입장 코드
               </th>
               <th className="px-5 py-3 text-right font-bold" style={{ color: "var(--ink-muted)" }}>
-                관리
+                <span className="sr-only">관리</span>
               </th>
             </tr>
           </thead>
@@ -123,17 +134,14 @@ function OperatingUnitsPanel({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-5 py-3">
-                  <span
-                    className="rounded-full border px-2.5 py-1 text-xs font-bold"
-                    style={{
-                      borderColor: unit.hasAccessPassword ? "rgba(21, 128, 61, 0.25)" : "var(--line)",
-                      backgroundColor: unit.hasAccessPassword ? "rgba(21, 128, 61, 0.08)" : "var(--surface-alt)",
-                      color: unit.hasAccessPassword ? "var(--success)" : "var(--ink-muted)",
-                    }}
-                  >
-                    {unit.hasAccessPassword ? "설정됨" : "공용 코드"}
-                  </span>
+                <td className="px-5 py-3 font-mono text-xs" style={{ color: "var(--ink-soft)" }}>
+                  {unit.accessPassword ? (
+                    unit.accessPassword
+                  ) : (
+                    <span style={{ color: "var(--ink-muted)" }}>
+                      {unit.hasAccessPassword ? "확인 불가" : "미설정"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-right">
                   <Link
@@ -153,41 +161,26 @@ function OperatingUnitsPanel({
   );
 }
 
-export default async function OperatingUnitsPage() {
+export default async function OperatingUnitsPage({
+  searchParams,
+}: OperatingUnitsPageProps) {
   const authenticated = await isGlobalAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const currentRole = await getCurrentRolePageRole();
-  const page = getRolePage("admin");
-  const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
-
-  let content;
-  if (access === "role-not-configured") {
-    content = <RoleNotConfigured label={page.label} />;
-  } else if (access === "role-required") {
-    content = (
-      <RoleAccessRequired
-        role="admin"
-        label={page.label}
-        invalid={false}
-      />
-    );
-  } else {
-    const { units, error } = await safeListOperatingUnits();
-    content = <OperatingUnitsPanel units={units} error={error} />;
-  }
+  const query = await searchParams;
+  const { units, error } = await safeListOperatingUnits();
 
   return (
     <RoleShell
       activeRole="admin"
-      title="목록 관리"
-      summary="이름, 주소, 입장 코드를 관리합니다."
-      scopeLabel="전체 관리자"
+      title="기수 관리"
+      summary="기수 이름, 접속 주소, 참가자 입장 코드를 관리합니다."
+      scopeLabel="전체관리자"
       showRoleNav={false}
     >
-      {content}
+      <OperatingUnitsPanel units={units} error={error} status={singleParam(query?.unit)} />
     </RoleShell>
   );
 }

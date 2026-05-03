@@ -5,8 +5,8 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { isAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -83,12 +83,12 @@ export default async function AngelPage({ searchParams }: AngelPageProps) {
   const query = await searchParams;
   const unitSlug = singleParam(query.unit);
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/angel") }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("angel");
   const rolePath = cohortAwarePath(unitSlug, page.path);
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
@@ -103,6 +103,7 @@ export default async function AngelPage({ searchParams }: AngelPageProps) {
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
         returnPath={rolePath}
+        unitSlug={unitSlug}
       />
     );
   } else {

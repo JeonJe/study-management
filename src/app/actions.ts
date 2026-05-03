@@ -6,6 +6,7 @@ export {
   createMeetingAction,
   createRsvpAction,
   deleteRsvpAction,
+  moveRsvpToWaitlistAction,
   promoteWaitlistedRsvpAction,
   bulkCreateRsvpsAction,
   updateMeetingAction,

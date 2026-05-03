@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import { cachedLoadMemberPreset } from "@/lib/cached-queries";
 import { MemberAdminForm } from "@/app/members/member-admin-form";
 import { DashboardHeader } from "@/app/dashboard-header";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 
 type MembersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,9 +20,9 @@ function singleParam(value: string | string[] | undefined): string {
 export default async function MembersPage({ searchParams }: MembersPageProps) {
   const params = await searchParams;
   const unitSlug = singleParam(params.unit);
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/members") }));
   }
 
   const preset = await cachedLoadMemberPreset(unitSlug);

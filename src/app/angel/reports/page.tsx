@@ -5,7 +5,7 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import {
   canOpenRolePage,
   getRolePage,
@@ -18,7 +18,7 @@ import {
   type WeeklyReportCycle,
   listWeeklyReportCycles,
 } from "@/lib/weekly-report-store";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 
 type AngelReportsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -48,6 +48,12 @@ async function safeListCycles(unitSlug: string): Promise<{
       error: true,
     };
   }
+}
+
+function formatWeekLabel(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  return normalized.endsWith("주차") ? normalized : `${normalized}주차`;
 }
 
 function ReportCycleList({
@@ -80,20 +86,21 @@ function ReportCycleList({
           </p>
         </article>
       ) : (
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="card-static overflow-hidden">
           {cycles.map((cycle) => (
             <Link
               key={cycle.id}
               href={cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}`)}
-              className="card p-5"
+              className="block border-b p-4 transition last:border-b-0 hover:bg-white/70 sm:p-5"
+              style={{ borderColor: "var(--line)" }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
                     {cycle.title}
                   </h3>
                   <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-                    {cycle.weekLabel}
+                    {formatWeekLabel(cycle.weekLabel)}
                     {cycle.dueDate ? ` · 마감 ${cycle.dueDate}` : ""}
                   </p>
                 </div>
@@ -109,7 +116,7 @@ function ReportCycleList({
                 </span>
               </div>
               {cycle.prompt ? (
-                <p className="mt-4 line-clamp-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+                <p className="mt-3 line-clamp-1 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
                   {cycle.prompt}
                 </p>
               ) : null}
@@ -125,12 +132,12 @@ export default async function AngelReportsPage({ searchParams }: AngelReportsPag
   const query = await searchParams;
   const unitSlug = singleParam(query.unit);
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/angel/reports") }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("angel");
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 
@@ -143,6 +150,8 @@ export default async function AngelReportsPage({ searchParams }: AngelReportsPag
         role="angel"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, "/angel/reports")}
+        unitSlug={unitSlug}
       />
     );
   } else {

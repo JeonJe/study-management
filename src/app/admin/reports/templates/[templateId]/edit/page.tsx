@@ -6,9 +6,12 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { updateWeeklyReportTemplateAction } from "@/app/weekly-report-actions";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import {
+  deleteWeeklyReportTemplateAction,
+  updateWeeklyReportTemplateAction,
+} from "@/app/weekly-report-actions";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -115,6 +118,23 @@ function TemplateEditPanel({
           submitLabel="수정"
           unitSlug={unitSlug}
         />
+        <div className="mt-5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
+          <form action={deleteWeeklyReportTemplateAction} className="flex justify-end">
+            <input type="hidden" name="unit" value={unitSlug} />
+            <input type="hidden" name="templateId" value={template.id} />
+            <button
+              type="submit"
+              className="rounded-full border px-4 py-2 text-sm font-bold"
+              style={{
+                borderColor: "#fecaca",
+                backgroundColor: "var(--danger-bg)",
+                color: "var(--danger)",
+              }}
+            >
+              삭제
+            </button>
+          </form>
+        </div>
       </div>
     </section>
   );
@@ -124,16 +144,19 @@ export default async function EditWeeklyReportTemplatePage({
   params,
   searchParams,
 }: EditTemplatePageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const [routeParams, query] = await Promise.all([params, searchParams]);
+  const unitSlug = singleParam(query.unit);
+  const editPath = `/admin/reports/templates/${encodeURIComponent(routeParams.templateId)}/edit`;
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, routeParams, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, editPath) }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -146,10 +169,11 @@ export default async function EditWeeklyReportTemplatePage({
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, editPath)}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    const unitSlug = singleParam(query.unit);
     const data = await safeLoadTemplate(routeParams.templateId, unitSlug);
     content = <TemplateEditPanel template={data.template} loadError={data.error} unitSlug={unitSlug} />;
   }
@@ -159,7 +183,7 @@ export default async function EditWeeklyReportTemplatePage({
       activeRole="admin"
       title="보고 템플릿"
       summary="주간 보고 입력 양식을 관리합니다."
-      unitSlug={singleParam(query.unit)}
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

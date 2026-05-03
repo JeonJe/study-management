@@ -66,10 +66,6 @@ export async function isAuthenticatedForUnit(unitSlug: string): Promise<boolean>
   const currentToken = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   if (!currentToken) return false;
 
-  if (isGlobalAuthToken(currentToken)) {
-    return true;
-  }
-
   const unitToken = parseUnitAuthToken(currentToken);
   if (!unitToken || normalizeOperatingUnitSlug(unitToken.slug) !== normalizedUnitSlug) {
     return false;

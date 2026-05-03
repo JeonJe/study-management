@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { normalizeMeetingKind } from "@/lib/meeting-kind";
+import { cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
+import { getCurrentRolePageRole } from "@/lib/role-session";
 import {
   createMeeting,
   createRsvp,
@@ -11,6 +13,7 @@ import {
   deleteMeeting,
   deleteRsvp,
   isMeetingPasswordError,
+  moveRsvpToWaitlist,
   parseCapacityInput,
   promoteWaitlistedRsvp,
   type ParticipantRole,
@@ -38,6 +41,24 @@ import {
   textFrom,
   unitSlugFromPath,
 } from "@/app/actions/shared-action-utils";
+
+async function requireMeetingManagementRole(returnPath: string | null): Promise<void> {
+  let unitSlug = "";
+  try {
+    unitSlug = unitSlugFromPath(returnPath);
+  } catch {
+    redirect("/?auth=required");
+  }
+  const currentRole = await getCurrentRolePageRole(unitSlug);
+  if (currentRole === "admin" || currentRole === "angel") return;
+
+  redirect(
+    cohortEntryLoginPath(unitSlug, {
+      auth: "required",
+      returnPath: returnPath ?? "/",
+    })
+  );
+}
 
 export async function createMeetingAction(formData: FormData): Promise<void> {
   const state: DashboardState = {
@@ -119,6 +140,7 @@ export async function deleteRsvpAction(formData: FormData): Promise<void> {
   const returnPath = safeReturnPath(formData);
 
   await requireAuthOrRedirect();
+  await requireMeetingManagementRole(returnPath);
 
   if (!meetingId || !rsvpId) {
     redirect(dashboardPath({ date, keyword }));
@@ -137,6 +159,7 @@ export async function promoteWaitlistedRsvpAction(formData: FormData): Promise<v
   const fallbackPath = returnPath ?? (meetingId ? `/meetings/${meetingId}` : "/");
 
   await requireAuthOrRedirect();
+  await requireMeetingManagementRole(returnPath);
 
   if (!meetingId || !rsvpId) {
     redirect(fallbackPath);
@@ -146,6 +169,25 @@ export async function promoteWaitlistedRsvpAction(formData: FormData): Promise<v
   if (!promoted) {
     redirect(participantFeedbackPath(fallbackPath, "waitlist-full", "manual"));
   }
+
+  revalidateMeetupViews(meetingId, returnPath);
+  redirect(fallbackPath);
+}
+
+export async function moveRsvpToWaitlistAction(formData: FormData): Promise<void> {
+  const meetingId = textFrom(formData, "meetingId").trim();
+  const rsvpId = textFrom(formData, "rsvpId").trim();
+  const returnPath = safeReturnPath(formData);
+  const fallbackPath = returnPath ?? (meetingId ? `/meetings/${meetingId}` : "/");
+
+  await requireAuthOrRedirect();
+  await requireMeetingManagementRole(returnPath);
+
+  if (!meetingId || !rsvpId) {
+    redirect(fallbackPath);
+  }
+
+  await moveRsvpToWaitlist(meetingId, rsvpId);
 
   revalidateMeetupViews(meetingId, returnPath);
   redirect(fallbackPath);

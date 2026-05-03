@@ -9,7 +9,7 @@ import {
   updateAfterpartyAction,
   updateAfterpartySettlementAction,
 } from "@/app/actions";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import { withTeamLabel } from "@/lib/member-label-utils";
 import {
   type AfterpartyParticipant,
@@ -24,7 +24,7 @@ import {
   cachedListSettlementsForAfterparty,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { SettlementToggle } from "@/app/afterparty/[afterpartyId]/settlement-toggle";
 import {
   normalizeParticipantName,
@@ -257,9 +257,13 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
   const participantSource = singleParam(query.participantSource);
   const participantDraft = singleParam(query.participantDraft);
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    const returnPath = cohortAwarePath(
+      unitSlug,
+      `/afterparty/${encodeURIComponent(afterpartyId)}${date ? `?date=${encodeURIComponent(date)}` : ""}`
+    );
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath }));
   }
 
   const [afterparty, settlements, memberPreset] = await Promise.all([

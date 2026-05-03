@@ -3,24 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
 import {
   createWeeklyReportCycle,
   createWeeklyReportTemplate,
+  deleteAngelWeeklyReport,
   deleteWeeklyReportTemplate,
-  addComment,
-  listComments,
-  softDeleteComment,
   updateWeeklyReportTemplate,
   updateWeeklyReportCycle,
   upsertAngelWeeklyReport,
 } from "@/lib/weekly-report-store";
-import type { WeeklyReportCommentAuthorRole } from "@/lib/weekly-report-store";
-import {
-  getCurrentRolePageRole,
-  verifyRoleScopedToken,
-} from "@/lib/role-session";
+import { getCurrentRolePageRole } from "@/lib/role-session";
 import type { RolePageRole } from "@/lib/role-page";
 
 function textFrom(formData: FormData, key: string): string {
@@ -42,28 +36,34 @@ function safeReturnPath(formData: FormData): string | null {
   return raw;
 }
 
+function appendQuery(path: string, key: string, value: string): string {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
 function operatingUnitSlugFromForm(formData: FormData): string {
   return requireOperatingUnitSlug(textFrom(formData, "unit"));
 }
 
 async function requireRole(
+  unitSlug: string,
   allowedRoles: RolePageRole[],
   fallbackPath: string
 ): Promise<void> {
   const authenticated = await isAuthenticated();
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: fallbackPath }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   if (!currentRole || !allowedRoles.includes(currentRole)) {
     redirect(fallbackPath);
   }
 }
 
 export async function createWeeklyReportCycleAction(formData: FormData): Promise<void> {
-  await requireRole(["admin"], "/admin?access=required");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
+  await requireRole(operatingUnitSlug, ["admin"], `${cohortAwarePath(operatingUnitSlug, "/admin/reports/cycles/new")}?access=required`);
 
   await createWeeklyReportCycle({
     operatingUnitSlug,
@@ -82,8 +82,8 @@ export async function createWeeklyReportCycleAction(formData: FormData): Promise
 }
 
 export async function updateWeeklyReportCycleAction(formData: FormData): Promise<void> {
-  await requireRole(["admin"], "/admin?access=required");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
+  await requireRole(operatingUnitSlug, ["admin"], `${cohortAwarePath(operatingUnitSlug, "/admin/reports")}?access=required`);
 
   await updateWeeklyReportCycle({
     operatingUnitSlug,
@@ -107,8 +107,8 @@ export async function updateWeeklyReportCycleAction(formData: FormData): Promise
 }
 
 export async function createWeeklyReportTemplateAction(formData: FormData): Promise<void> {
-  await requireRole(["admin"], "/admin?access=required");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
+  await requireRole(operatingUnitSlug, ["admin"], `${cohortAwarePath(operatingUnitSlug, "/admin/reports/templates/new")}?access=required`);
   const sectionTitles = textListFrom(formData, "sectionTitle");
   const sectionPrompts = textListFrom(formData, "sectionPrompt");
 
@@ -136,9 +136,13 @@ export async function createWeeklyReportTemplateAction(formData: FormData): Prom
 }
 
 export async function updateWeeklyReportTemplateAction(formData: FormData): Promise<void> {
-  await requireRole(["admin"], "/admin?access=required");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
   const templateId = textFrom(formData, "templateId");
+  await requireRole(
+    operatingUnitSlug,
+    ["admin"],
+    `${cohortAwarePath(operatingUnitSlug, `/admin/reports/templates/${encodeURIComponent(templateId)}/edit`)}?access=required`
+  );
   const sectionTitles = textListFrom(formData, "sectionTitle");
   const sectionPrompts = textListFrom(formData, "sectionPrompt");
 
@@ -162,8 +166,8 @@ export async function updateWeeklyReportTemplateAction(formData: FormData): Prom
 }
 
 export async function deleteWeeklyReportTemplateAction(formData: FormData): Promise<void> {
-  await requireRole(["admin"], "/admin?access=required");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
+  await requireRole(operatingUnitSlug, ["admin"], `${cohortAwarePath(operatingUnitSlug, "/admin/reports")}?access=required`);
   await deleteWeeklyReportTemplate(textFrom(formData, "templateId"), operatingUnitSlug);
 
   revalidatePath("/admin");
@@ -174,11 +178,16 @@ export async function deleteWeeklyReportTemplateAction(formData: FormData): Prom
 }
 
 export async function submitAngelWeeklyReportAction(formData: FormData): Promise<void> {
-  await requireRole(["angel", "admin"], "/angel?access=required");
-
   const cycleId = textFrom(formData, "cycleId");
   const operatingUnitSlug = operatingUnitSlugFromForm(formData);
   const returnPath = safeReturnPath(formData);
+  await requireRole(
+    operatingUnitSlug,
+    ["angel", "admin"],
+    returnPath
+      ? appendQuery(returnPath, "access", "required")
+      : `${cohortAwarePath(operatingUnitSlug, "/angel")}?access=required`
+  );
 
   await upsertAngelWeeklyReport({
     operatingUnitSlug,
@@ -196,84 +205,25 @@ export async function submitAngelWeeklyReportAction(formData: FormData): Promise
   revalidatePath(`/angel/reports/${cycleId}`);
   revalidatePath("/admin");
   revalidatePath("/admin/reports");
-  redirect(returnPath ? `${returnPath}?report=submitted` : `/angel/reports/${encodeURIComponent(cycleId)}?report=submitted`);
+  redirect(returnPath ? appendQuery(returnPath, "report", "submitted") : `/angel/reports/${encodeURIComponent(cycleId)}?report=submitted`);
 }
 
-function commentAuthorRoleFromPageRole(
-  role: RolePageRole | null
-): WeeklyReportCommentAuthorRole {
-  return role === "admin" ? "admin" : "angel";
-}
-
-export async function addWeeklyReportCommentAction(formData: FormData): Promise<void> {
-  await requireRole(["angel", "admin"], "/angel?access=required");
-
-  const currentRole = await getCurrentRolePageRole();
-  const reportId = textFrom(formData, "reportId");
+export async function deleteAngelWeeklyReportAction(formData: FormData): Promise<void> {
+  const cycleId = textFrom(formData, "cycleId");
+  const operatingUnitSlug = operatingUnitSlugFromForm(formData);
   const returnPath = safeReturnPath(formData);
-  const authorRole = commentAuthorRoleFromPageRole(currentRole);
-  const authorLabel = textFrom(formData, "authorLabel") || (authorRole === "admin" ? "관리자" : "");
-  if (
-    authorRole === "angel" &&
-    !verifyRoleScopedToken(
-      "angel",
-      "weekly-report-comment-author",
-      `${reportId}:${authorLabel}`,
-      textFrom(formData, "authorToken")
-    )
-  ) {
-    redirect(returnPath ? `${returnPath}?comment=forbidden` : "/angel/reports?comment=forbidden");
-  }
+  await requireRole(
+    operatingUnitSlug,
+    ["angel", "admin"],
+    returnPath ? appendQuery(returnPath, "access", "required") : `${cohortAwarePath(operatingUnitSlug, "/angel")}?access=required`
+  );
 
-  await addComment({
-    reportId,
-    authorRole,
-    authorLabel,
-    body: textFrom(formData, "body"),
-  });
+  await deleteAngelWeeklyReport(textFrom(formData, "reportId"), operatingUnitSlug);
 
   revalidatePath("/angel");
   revalidatePath("/angel/reports");
-  revalidatePath(returnPath ?? "/angel/reports");
-  redirect(returnPath ? `${returnPath}?comment=created` : "/angel/reports?comment=created");
-}
-
-export async function deleteWeeklyReportCommentAction(formData: FormData): Promise<void> {
-  await requireRole(["angel", "admin"], "/angel?access=required");
-
-  const currentRole = await getCurrentRolePageRole();
-  const commentId = textFrom(formData, "commentId");
-  const reportId = textFrom(formData, "reportId");
-  const returnPath = safeReturnPath(formData);
-  const authorLabel = textFrom(formData, "authorLabel");
-  const ownershipToken = textFrom(formData, "ownershipToken");
-  const comments = await listComments(reportId);
-  const target = comments.find((comment) => comment.id === commentId);
-
-  if (!target) {
-    redirect(returnPath ?? "/angel/reports");
-  }
-
-  const canDelete =
-    currentRole === "admin" ||
-    (currentRole === "angel" &&
-      target.authorRole === "angel" &&
-      target.authorLabel === authorLabel &&
-      verifyRoleScopedToken(
-        "angel",
-        "weekly-report-comment-delete",
-        `${reportId}:${commentId}:${authorLabel}`,
-        ownershipToken
-      ));
-
-  if (!canDelete) {
-    redirect(returnPath ? `${returnPath}?comment=forbidden` : "/angel/reports?comment=forbidden");
-  }
-
-  await softDeleteComment(commentId);
-
-  revalidatePath("/angel");
-  revalidatePath("/angel/reports");
-  revalidatePath(returnPath ?? "/angel/reports");
-  redirect(returnPath ? `${returnPath}?comment=deleted` : "/angel/reports?comment=deleted");
+  revalidatePath(`/angel/reports/${cycleId}`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
+  redirect(returnPath ? appendQuery(returnPath, "report", "unsubmitted") : `/angel/reports/${encodeURIComponent(cycleId)}?report=unsubmitted`);
 }

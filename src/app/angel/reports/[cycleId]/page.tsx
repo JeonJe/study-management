@@ -5,7 +5,8 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { isAuthenticated } from "@/lib/auth";
+import { ToastNotice } from "@/app/toast-notice";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import {
   type TeamMemberGroup,
   loadMemberPreset,
@@ -24,7 +25,7 @@ import {
   getWeeklyReportCycleById,
   listAngelWeeklyReports,
 } from "@/lib/weekly-report-store";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { formatShortDateTime } from "@/lib/date-utils";
 
 type AngelReportCyclePageProps = {
@@ -85,6 +86,12 @@ function shortDateTime(value: string): string {
   return formatShortDateTime(value);
 }
 
+function formatWeekLabel(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  return normalized.endsWith("주차") ? normalized : `${normalized}주차`;
+}
+
 function TeamReportCard({
   cycle,
   team,
@@ -107,34 +114,37 @@ function TeamReportCard({
   return (
     <Link
       href={teamReportPath}
-      className="card group block cursor-pointer p-5 transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6"
+      className="card-static group block cursor-pointer p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
+        <div className="min-w-0">
+          <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
             {team.teamName}
           </h3>
-          <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-            엔젤 {team.angels.length > 0 ? team.angels.join(", ") : "미지정"} · 멤버 {team.members.length}명
+          <p className="mt-1 truncate text-sm" style={{ color: "var(--ink-muted)" }}>
+            엔젤 {team.angels.length > 0 ? team.angels.join(", ") : "미지정"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: submitted ? "var(--success)" : "var(--accent-strong)" }}>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold"
+            style={{
+              backgroundColor: submitted ? "var(--success-bg)" : "var(--accent-weak)",
+              color: submitted ? "var(--success)" : "var(--accent-strong)",
+            }}
+          >
             <span
               className="h-2 w-2 rounded-full"
               style={{ backgroundColor: submitted ? "var(--success)" : "var(--accent)" }}
               aria-hidden="true"
             />
-            {submitted ? "제출됨" : "미작성"}
-          </span>
-          <span className="rounded-full border px-3 py-1 text-xs font-bold transition group-hover:border-transparent" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}>
-            {submitted ? "수정하기" : "작성하기"}
+            {submitted ? "제출" : "대기"}
           </span>
         </div>
       </div>
 
       {submitted ? (
-        <div className="mt-4 rounded-2xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}>
+        <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--line)" }}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
               최근 작성 내용
@@ -144,8 +154,8 @@ function TeamReportCard({
               {submittedAt ? ` · ${submittedAt}` : ""}
             </p>
           </div>
-          <p className="mt-2 line-clamp-3 text-sm leading-6" style={{ color: "var(--ink-soft)" }}>
-            {latestReport.summary}
+          <p className="mt-2 line-clamp-2 text-sm leading-6" style={{ color: "var(--ink-soft)" }}>
+            {latestReport.summary || latestReport.notes || latestReport.requests || "작성된 내용이 있습니다."}
           </p>
         </div>
       ) : null}
@@ -171,9 +181,11 @@ function WeeklyReportAngelPanel({
   const submittedTeamCount = teamGroups.filter((team) =>
     reports.some((report) => report.teamName === team.teamName)
   ).length;
+  const weekLabel = cycle ? formatWeekLabel(cycle.weekLabel) : "";
 
   return (
     <section id="weekly-report" className="grid gap-4">
+      {submitted ? <ToastNotice message="저장 완료" /> : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold" style={{ color: "var(--ink)" }}>
@@ -181,18 +193,6 @@ function WeeklyReportAngelPanel({
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {submitted ? (
-            <span
-              className="rounded-full border px-3 py-1 text-sm font-bold"
-              style={{
-                borderColor: "var(--success)",
-                backgroundColor: "var(--success-bg)",
-                color: "var(--success)",
-              }}
-            >
-              저장됨
-            </span>
-          ) : null}
           <Link
             href={cohortAwarePath(unitSlug, "/angel/reports")}
             className="rounded-full border px-3 py-1 text-sm font-bold"
@@ -223,42 +223,34 @@ function WeeklyReportAngelPanel({
         </article>
       ) : (
         <>
-          <article className="card-static p-5 sm:p-6">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <article className="card-static p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-xl font-extrabold" style={{ color: "var(--ink)" }}>
                   {cycle.title}
                 </h3>
                 <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-                  {cycle.weekLabel}
+                  {weekLabel}
                   {cycle.dueDate ? ` · 마감 ${cycle.dueDate}` : ""}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
-                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-                  <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
-                    작성 팀
-                  </p>
-                  <p className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                    {submittedTeamCount}/{teamGroups.length}
-                  </p>
-                </div>
-                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-                  <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
-                    작성 건
-                  </p>
-                  <p className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                    {cycle.reportCount}
-                  </p>
-                </div>
-              </div>
+              <span
+                className="inline-flex h-9 items-center rounded-full border px-3 text-sm font-extrabold"
+                style={{
+                  borderColor: "rgba(13, 127, 242, 0.22)",
+                  backgroundColor: "var(--accent-weak)",
+                  color: "var(--accent-strong)",
+                }}
+              >
+                제출 현황 {submittedTeamCount}/{teamGroups.length}
+              </span>
             </div>
             <div
-              className="mt-4 rounded-2xl border px-4 py-3 text-sm leading-6"
+              className="mt-4 rounded-xl border px-4 py-3 text-sm leading-6"
               style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}
             >
               <span className="font-bold" style={{ color: "var(--ink)" }}>
-                이번 주 작성 기준
+                안내
               </span>
               <span className="ml-2">
                 {cycle.prompt || "팀 분위기, 참여 상황, 도움이 필요한 부분을 자유롭게 적어주세요."}
@@ -301,15 +293,18 @@ export default async function AngelReportCyclePage({
   const [routeParams, query] = await Promise.all([params, searchParams]);
   const unitSlug = singleParam(query.unit);
   if (!unitSlug) {
-    redirect("/admin");
+    redirect("/");
   }
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, {
+      auth: "required",
+      returnPath: cohortAwarePath(unitSlug, `/angel/reports/${encodeURIComponent(routeParams.cycleId)}`),
+    }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("angel");
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
 
@@ -322,6 +317,8 @@ export default async function AngelReportCyclePage({
         role="angel"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, `/angel/reports/${encodeURIComponent(routeParams.cycleId)}`)}
+        unitSlug={unitSlug}
       />
     );
   } else {

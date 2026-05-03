@@ -2,26 +2,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   updateOperatingUnitAccessCodeAction,
+  updateOperatingUnitAdminCodeAction,
+  updateOperatingUnitAngelCodeAction,
   updateOperatingUnitAction,
 } from "@/app/admin/operating-units/operating-unit-actions";
-import {
-  RoleAccessRequired,
-  RoleNotConfigured,
-} from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
+import { ToastNotice } from "@/app/toast-notice";
 import { isGlobalAuthenticated } from "@/lib/auth";
 import {
   type OperatingUnit,
   getOperatingUnit,
 } from "@/lib/operating-unit-store";
-import {
-  canOpenRolePage,
-  getRolePage,
-} from "@/lib/role-page";
-import {
-  getConfiguredRolePages,
-  getCurrentRolePageRole,
-} from "@/lib/role-session";
 
 type EditOperatingUnitPageProps = {
   params: Promise<{ id: string }>;
@@ -55,7 +46,7 @@ function EditOperatingUnitForm({ unit }: { unit: OperatingUnit }) {
 
       <div className="grid gap-2">
         <span className="text-sm font-bold" style={{ color: "var(--ink)" }}>
-          주소 식별자
+          접속 주소
         </span>
         <code
           className="rounded-xl border px-3 py-2 text-sm"
@@ -64,7 +55,7 @@ function EditOperatingUnitForm({ unit }: { unit: OperatingUnit }) {
           {unit.slug}
         </code>
         <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-          URL에 쓰이는 값입니다. 예: /cohorts/{unit.slug}/admin
+          링크에 쓰이는 값입니다. 예: /cohorts/{unit.slug}/admin
         </p>
       </div>
 
@@ -117,79 +108,142 @@ function EditOperatingUnitForm({ unit }: { unit: OperatingUnit }) {
   );
 }
 
-function AccessCodeForm({
+function BackToOperatingUnitsLink() {
+  return (
+    <Link
+      href="/admin/operating-units"
+      className="btn-press inline-flex w-fit rounded-full border px-4 py-2 text-sm font-bold"
+      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}
+    >
+      기수 목록
+    </Link>
+  );
+}
+
+function CodeFormRow({
   unit,
-  status,
+  label,
+  fieldName,
+  currentCode,
+  hasCode,
+  placeholder,
+  action,
 }: {
   unit: OperatingUnit;
-  status: string;
+  label: string;
+  fieldName: string;
+  currentCode: string | null;
+  hasCode: boolean;
+  placeholder: string;
+  action: (formData: FormData) => Promise<void>;
 }) {
-  const statusMessage =
-    status === "access-code-updated"
-      ? "입장 코드가 변경됐습니다."
-      : status === "access-code-required"
-        ? "새 입장 코드를 입력하세요."
-        : "";
-
   return (
     <form
-      action={updateOperatingUnitAccessCodeAction}
-      className="card-static grid gap-4 p-5 sm:p-6"
+      action={action}
+      className="grid gap-3 border-t py-4 lg:grid-cols-[140px_1fr_1fr_auto] lg:items-center"
+      style={{ borderColor: "var(--line)" }}
     >
       <input type="hidden" name="slug" value={unit.slug} />
-
-      <div className="grid gap-1">
-        <h2 className="text-base font-bold" style={{ color: "var(--ink)" }}>
-          입장 코드
-        </h2>
-        <p className="text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-          {unit.hasAccessPassword
-            ? "이 항목으로 입장할 때 쓰는 전용 코드가 설정돼 있습니다."
-            : "아직 전용 입장 코드가 없어 공용 코드로 입장합니다."}
-        </p>
+      <div className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+        {label}
       </div>
-
-      <div className="grid gap-2">
-        <label className="text-sm font-bold" htmlFor="accessPassword" style={{ color: "var(--ink)" }}>
-          새 입장 코드
-        </label>
-        <input
-          id="accessPassword"
-          name="accessPassword"
-          type="password"
-          required
-          minLength={1}
-          autoComplete="new-password"
-          placeholder="참가자가 첫 화면에서 입력할 코드"
-          className="h-11 rounded-xl border px-3 text-sm outline-none"
-          style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
-        />
-      </div>
-
-      {statusMessage ? (
-        <p
-          className="rounded-xl border px-3 py-2 text-sm font-semibold"
-          style={{
-            borderColor: status === "access-code-updated" ? "rgba(21, 128, 61, 0.25)" : "#fecaca",
-            backgroundColor: status === "access-code-updated" ? "rgba(21, 128, 61, 0.08)" : "var(--danger-bg)",
-            color: status === "access-code-updated" ? "var(--success)" : "var(--danger)",
-          }}
-        >
-          {statusMessage}
-        </p>
-      ) : null}
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"
-          style={{ backgroundColor: "var(--accent)" }}
-        >
-          입장 코드 변경
-        </button>
-      </div>
+      <input
+        value={
+          currentCode ?? (hasCode ? "확인 불가" : "미설정")
+        }
+        readOnly
+        aria-label={`${label} 현재 코드`}
+        className="h-10 rounded-xl border px-3 text-sm outline-none"
+        style={{
+          borderColor: "var(--line)",
+          backgroundColor: "var(--surface-alt)",
+          color: currentCode ? "var(--ink)" : "var(--ink-muted)",
+        }}
+      />
+      <input
+        name={fieldName}
+        type="password"
+        required
+        minLength={1}
+        autoComplete="new-password"
+        placeholder={placeholder}
+        aria-label={`${label} 새 코드`}
+        className="h-10 rounded-xl border px-3 text-sm outline-none"
+        style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
+      />
+      <button
+        type="submit"
+        className="btn-press h-10 rounded-full px-4 text-sm font-bold text-white"
+        style={{ backgroundColor: "var(--accent)" }}
+      >
+        변경
+      </button>
     </form>
   );
+}
+
+function CodeManagementPanel({ unit }: { unit: OperatingUnit }) {
+  return (
+    <section className="card-static p-5 sm:p-6">
+      <h2 className="text-base font-bold" style={{ color: "var(--ink)" }}>
+        코드 관리
+      </h2>
+      <div className="mt-2 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
+        새 코드로 변경하면 기존 코드는 더 이상 사용할 수 없습니다.
+      </div>
+      <div className="mt-3">
+        <CodeFormRow
+          unit={unit}
+          label="입장 코드"
+          fieldName="accessPassword"
+          currentCode={unit.accessPassword}
+          hasCode={unit.hasAccessPassword}
+          placeholder="참가자가 입력할 코드"
+          action={updateOperatingUnitAccessCodeAction}
+        />
+        <CodeFormRow
+          unit={unit}
+          label="엔젤 코드"
+          fieldName="angelPassword"
+          currentCode={unit.angelPassword}
+          hasCode={unit.hasAngelPassword}
+          placeholder="엔젤 화면 코드"
+          action={updateOperatingUnitAngelCodeAction}
+        />
+        <CodeFormRow
+          unit={unit}
+          label="관리자 코드"
+          fieldName="adminPassword"
+          currentCode={unit.adminPassword}
+          hasCode={unit.hasAdminPassword}
+          placeholder="관리자 화면 코드"
+          action={updateOperatingUnitAdminCodeAction}
+        />
+      </div>
+    </section>
+  );
+}
+
+function editToastMessage(status: string): { message: string; tone?: "success" | "danger" } | null {
+  if (status === "access-code-updated") {
+    return { message: "변경 완료" };
+  }
+  if (status === "access-code-required") {
+    return { message: "새 입장 코드를 입력하세요.", tone: "danger" };
+  }
+  if (status === "angel-code-updated") {
+    return { message: "변경 완료" };
+  }
+  if (status === "angel-code-required") {
+    return { message: "새 엔젤 코드를 입력하세요.", tone: "danger" };
+  }
+  if (status === "admin-code-updated") {
+    return { message: "변경 완료" };
+  }
+  if (status === "admin-code-required") {
+    return { message: "새 관리자 코드를 입력하세요.", tone: "danger" };
+  }
+  return null;
 }
 
 export default async function EditOperatingUnitPage({
@@ -201,50 +255,42 @@ export default async function EditOperatingUnitPage({
     redirect("/?auth=required");
   }
 
-  const [currentRole, routeParams] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-  ]);
+  const routeParams = await params;
   const query = await searchParams;
   const status = singleParam(query.unit);
-  const page = getRolePage("admin");
-  const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
   let content;
-  if (access === "role-not-configured") {
-    content = <RoleNotConfigured label={page.label} />;
-  } else if (access === "role-required") {
-    content = <RoleAccessRequired role="admin" label={page.label} invalid={false} />;
+  const { unit, error } = await safeGetOperatingUnit(routeParams.id);
+  if (error) {
+    content = (
+      <section className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
+        데이터를 불러오지 못했습니다.
+      </section>
+    );
+  } else if (!unit) {
+    content = (
+      <section className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
+        항목을 찾을 수 없습니다.
+      </section>
+    );
   } else {
-    const { unit, error } = await safeGetOperatingUnit(routeParams.id);
-    if (error) {
-      content = (
-        <section className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
-          데이터를 불러오지 못했습니다.
-        </section>
-      );
-    } else if (!unit) {
-      content = (
-        <section className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
-          항목을 찾을 수 없습니다.
-        </section>
-      );
-    } else {
-      content = (
-        <div className="grid gap-4">
-          <EditOperatingUnitForm unit={unit} />
-          <AccessCodeForm unit={unit} status={status} />
-        </div>
-      );
-    }
+    const toast = editToastMessage(status);
+    content = (
+      <div className="grid gap-4">
+        <BackToOperatingUnitsLink />
+        {toast ? <ToastNotice message={toast.message} tone={toast.tone} /> : null}
+        <EditOperatingUnitForm unit={unit} />
+        <CodeManagementPanel unit={unit} />
+      </div>
+    );
   }
 
   return (
     <RoleShell
       activeRole="admin"
-      title="항목 편집"
-      summary="이름, 설명, 입장 코드를 수정합니다."
-      scopeLabel="전체 관리자"
+      title="기수 편집"
+      summary="기수 이름, 설명, 참가자와 운영진 코드를 수정합니다."
+      scopeLabel="전체관리자"
       showRoleNav={false}
     >
       {content}

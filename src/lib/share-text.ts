@@ -11,6 +11,7 @@ import {
   PARTICIPANT_ROLE_META,
   PARTICIPANT_ROLE_ORDER,
 } from "@/lib/participant-role-utils";
+import { extractHttpUrl } from "@/lib/location-utils";
 import { withTeamLabel } from "@/lib/member-label-utils";
 import { sortText } from "@/lib/sort-utils";
 
@@ -69,6 +70,56 @@ export function buildOfflineStudyShareText({
       lines.push(`- ${roleMeta.label}: ${names.length > 0 ? names.join(", ") : "없음"}`);
     }
     lines.push("");
+  }
+
+  return lines.join("\n").trim();
+}
+
+export function buildMeetingShareText({
+  meeting,
+  rsvps,
+  teamLabelByMemberName,
+}: {
+  meeting: MeetingSummary;
+  rsvps: RsvpRecord[];
+  teamLabelByMemberName: Map<string, string>;
+}): string {
+  const confirmedRsvps = rsvps.filter((row) => row.status === "confirmed");
+  const waitlistRsvps = rsvps.filter((row) => row.status === "waitlist");
+  const placeLink = extractHttpUrl(meeting.location);
+  const lines: string[] = [];
+
+  lines.push(`[모임] ${meeting.title}`);
+  lines.push(`- 날짜: ${meeting.meetingDate}`);
+  lines.push(`- 시간: ${formatStartTime(meeting.startTime)}`);
+  lines.push(`- 장소: ${meeting.location}`);
+  if (placeLink) {
+    lines.push(`- 지도 링크: ${placeLink}`);
+  }
+  if (meeting.description) {
+    lines.push(`- 안내: ${meeting.description}`);
+  }
+  if (meeting.leaders.length > 0) {
+    lines.push(`- 방장: ${meeting.leaders.join(", ")}`);
+  }
+  lines.push(
+    `- 참여: 확정 ${confirmedRsvps.length}명${meeting.capacity === null ? "" : ` / 정원 ${meeting.capacity}명`}`
+  );
+
+  for (const role of PARTICIPANT_ROLE_ORDER) {
+    const roleMeta = PARTICIPANT_ROLE_META[role];
+    const names = sortNames(
+      confirmedRsvps
+        .filter((row) => row.role === role)
+        .map((row) => withTeamLabel(row.name, teamLabelByMemberName))
+    );
+    lines.push(`- ${roleMeta.label}: ${names.length > 0 ? names.join(", ") : "없음"}`);
+  }
+
+  if (waitlistRsvps.length > 0) {
+    lines.push(
+      `- 대기: ${sortNames(waitlistRsvps.map((row) => withTeamLabel(row.name, teamLabelByMemberName))).join(", ")}`
+    );
   }
 
   return lines.join("\n").trim();

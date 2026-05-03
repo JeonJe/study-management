@@ -7,7 +7,7 @@ import {
 import { RoleShell } from "@/app/role-shell";
 import { isAuthenticatedForUnit } from "@/lib/auth";
 import { cachedGetTeamAttendanceDetailByPeriod } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   type TeamAttendanceDetail,
   type TeamAttendanceDetailItem,
@@ -298,10 +298,13 @@ export default async function TeamHistoryPage({
 
   const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect(`/?auth=required&unit=${encodeURIComponent(unitSlug)}`);
+    redirect(cohortEntryLoginPath(unitSlug, {
+      auth: "required",
+      returnPath: cohortAwarePath(unitSlug, `/admin/history/teams/${encodeURIComponent(routeParams.teamName)}`),
+    }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
   const period = normalizePeriod(query);
@@ -311,7 +314,18 @@ export default async function TeamHistoryPage({
   if (access === "role-not-configured") {
     content = <RoleNotConfigured label={page.label} />;
   } else if (access === "role-required") {
-    content = <RoleAccessRequired role="admin" label={page.label} invalid={false} />;
+    content = (
+      <RoleAccessRequired
+        role="admin"
+        label={page.label}
+        invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(
+          unitSlug,
+          `/admin/history/teams/${encodeURIComponent(routeParams.teamName)}`
+        )}
+        unitSlug={unitSlug}
+      />
+    );
   } else {
     const data = await safeLoadTeamHistory(teamName, period, unitSlug);
     content = <TeamHistoryPanel teamName={teamName} period={period} data={data} unitSlug={unitSlug} />;

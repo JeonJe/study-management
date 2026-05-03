@@ -7,8 +7,8 @@ import {
 import { RoleShell } from "@/app/role-shell";
 import { createWeeklyReportTemplateAction } from "@/app/weekly-report-actions";
 import { WeeklyReportTemplateForm } from "@/app/admin/reports/templates/new/weekly-report-template-form";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -65,15 +65,18 @@ function TemplateForm({ unitSlug }: { unitSlug: string }) {
 export default async function NewWeeklyReportTemplatePage({
   searchParams,
 }: NewTemplatePageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/admin/reports/templates/new") }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -86,18 +89,20 @@ export default async function NewWeeklyReportTemplatePage({
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, "/admin/reports/templates/new")}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    content = <TemplateForm unitSlug={singleParam(query.unit)} />;
+    content = <TemplateForm unitSlug={unitSlug} />;
   }
 
   return (
     <RoleShell
       activeRole="admin"
       title="보고 템플릿"
-      summary="주간 보고 작성 기준을 관리합니다."
-      unitSlug={singleParam(query.unit)}
+      summary="주간 보고 안내와 입력 항목을 관리합니다."
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

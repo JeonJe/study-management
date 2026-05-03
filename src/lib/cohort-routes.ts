@@ -70,6 +70,31 @@ export function cohortAwarePath(unitSlug: string, href: string): string {
   return `${path}${parsed.search}${parsed.hash}`;
 }
 
+export function cohortEntryLoginPath(
+  unitSlug: string,
+  options: { auth?: "required" | "invalid"; returnPath?: string } = {}
+): string {
+  const unit = unitSlug.trim();
+  if (!unit) return "/";
+
+  const params = new URLSearchParams();
+  if (options.auth) params.set("auth", options.auth);
+  if (options.returnPath?.startsWith("/") && !options.returnPath.startsWith("//")) {
+    params.set("returnPath", options.returnPath);
+  }
+
+  const query = params.toString();
+  return `/${COHORT_PREFIX}/${encodeURIComponent(unit)}/entry${query ? `?${query}` : ""}`;
+}
+
+export function cleanReturnPath(path: string): string {
+  const raw = path.trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return "/";
+  }
+  return raw;
+}
+
 export function resolveCohortRewrite(pathname: string): CohortRewriteTarget | null {
   const [prefix, rawUnit, rawSection = "loop-pak", ...rest] = cleanSegments(pathname);
   if (prefix !== COHORT_PREFIX || !rawUnit) return null;

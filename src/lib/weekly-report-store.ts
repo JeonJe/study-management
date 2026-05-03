@@ -107,37 +107,6 @@ type UpdateWeeklyReportTemplateInput = CreateWeeklyReportTemplateInput & {
   id: string;
 };
 
-export type WeeklyReportCommentAuthorRole = 'admin' | 'angel' | 'leader';
-
-// 댓글 작성자 역할 화이트리스트. SM-3B server action에서 동일 검증에 재사용한다.
-export const VALID_AUTHOR_ROLES: readonly WeeklyReportCommentAuthorRole[] = [
-  'admin',
-  'angel',
-  'leader',
-] as const;
-
-export type WeeklyReportComment = {
-  id: string;
-  reportId: string;
-  // author_role은 표시 목적. 실제 권한 검증은 role-session의 RolePageRole로 수행 (SM-3B에서 매핑)
-  authorRole: WeeklyReportCommentAuthorRole;
-  authorLabel: string;
-  body: string;
-  createdAt: string;
-};
-
-export type WeeklyReportCommentCount = {
-  reportId: string;
-  commentCount: number;
-};
-
-type AddWeeklyReportCommentInput = {
-  reportId: string;
-  authorRole: WeeklyReportCommentAuthorRole;
-  authorLabel: string;
-  body: string;
-};
-
 type SchemaRow = {
   cycles: string | null;
   reports: string | null;
@@ -170,7 +139,7 @@ export const DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS: WeeklyReportTemplateSectio
     key: "summary",
     title: "팀 현황",
     prompt: "이번 주 팀 분위기와 참여 상황을 적어주세요.",
-    required: true,
+    required: false,
   },
   {
     key: "notes",
@@ -233,7 +202,7 @@ function buildTemplateSections(
       key: "summary",
       title: input.summaryTitle,
       prompt: input.summaryPrompt,
-      required: true,
+      required: false,
     },
     {
       key: "notes",
@@ -359,24 +328,6 @@ export async function ensureWeeklyReportSchema(): Promise<void> {
        on public.angel_weekly_reports (cycle_id, updated_at desc)`
     );
 
-    await query(
-      `create table if not exists public.weekly_report_comments (
-         id           uuid primary key,
-         report_id    uuid not null references public.angel_weekly_reports(id) on delete cascade,
-         author_role  text not null check (author_role in ('admin', 'angel', 'leader')),
-         author_label text not null,
-         body         text not null,
-         created_at   timestamptz not null default now(),
-         deleted_at   timestamptz
-       )`
-    );
-
-    await query(
-      `create index if not exists idx_weekly_report_comments_report
-       on public.weekly_report_comments (report_id, created_at asc)
-       where deleted_at is null`
-    );
-
     schemaReady = true;
   })().finally(() => {
     schemaPromise = null;
@@ -396,7 +347,7 @@ export async function createWeeklyReportTemplate(
   const sections = buildTemplateSections(input);
 
   if (!name || !prompt) {
-    throw new Error("템플릿 이름과 전체 안내는 필수입니다.");
+    throw new Error("템플릿 이름과 안내는 필수입니다.");
   }
 
   const [created] = await query<WeeklyReportTemplate>(
@@ -494,7 +445,7 @@ export async function updateWeeklyReportTemplate(
   const sections = buildTemplateSections(input);
 
   if (!id || !name || !prompt) {
-    throw new Error("템플릿, 이름, 전체 안내는 필수입니다.");
+    throw new Error("템플릿, 이름, 안내는 필수입니다.");
   }
 
   const [updated] = await query<WeeklyReportTemplate>(
@@ -828,8 +779,8 @@ export async function upsertAngelWeeklyReport(
   const teamName = cleanText(input.teamName);
   const summary = cleanText(input.summary);
 
-  if (!cycleId || !angelName || !teamName || !summary) {
-    throw new Error("주차, 엔젤, 팀, 팀 현황 요약은 필수입니다.");
+  if (!cycleId || !angelName || !teamName) {
+    throw new Error("주차, 엔젤, 팀은 필수입니다.");
   }
 
   const [report] = await query<AngelWeeklyReport>(
@@ -878,122 +829,24 @@ export async function upsertAngelWeeklyReport(
   return report;
 }
 
-export async function listComments(
-  reportId: string
-): Promise<WeeklyReportComment[]> {
+export async function deleteAngelWeeklyReport(
+  reportIdInput: string,
+  operatingUnitSlugInput: string
+): Promise<void> {
   await ensureWeeklyReportSchema();
 
-  const id = cleanText(reportId);
-  if (!id) {
-    throw new Error("보고서 ID는 필수입니다.");
-  }
-
-  return query<WeeklyReportComment>(
-    `select
-       id,
-       report_id as "reportId",
-       author_role as "authorRole",
-       author_label as "authorLabel",
-       body,
-       created_at::text as "createdAt"
-     from public.weekly_report_comments
-     where report_id = $1
-       and deleted_at is null
-     order by created_at asc`,
-    [id]
-  );
-}
-
-export async function countCommentsByReportIds(
-  reportIds: string[]
-): Promise<Map<string, number>> {
-  await ensureWeeklyReportSchema();
-
-  const ids = Array.from(
-    new Set(reportIds.map((reportId) => cleanText(reportId)).filter(Boolean))
-  );
-  if (ids.length === 0) {
-    return new Map();
-  }
-
-  const rows = await query<WeeklyReportCommentCount>(
-    `select
-       report_id as "reportId",
-       count(*)::int as "commentCount"
-     from public.weekly_report_comments
-     where report_id = any($1::uuid[])
-       and deleted_at is null
-     group by report_id`,
-    [ids]
-  );
-
-  return new Map(rows.map((row) => [row.reportId, row.commentCount]));
-}
-
-export async function addComment(
-  input: AddWeeklyReportCommentInput
-): Promise<WeeklyReportComment> {
-  await ensureWeeklyReportSchema();
-
-  if (!VALID_AUTHOR_ROLES.includes(input.authorRole)) {
-    throw new Error("유효하지 않은 작성자 역할입니다.");
-  }
-
-  const reportId = cleanText(input.reportId);
-  const authorLabel = cleanText(input.authorLabel);
-  const body = cleanText(input.body);
-
+  const reportId = cleanText(reportIdInput);
+  const operatingUnitSlug = requireOperatingUnitSlug(operatingUnitSlugInput);
   if (!reportId) {
-    throw new Error("보고서 ID는 필수입니다.");
-  }
-  if (!authorLabel) {
-    throw new Error("작성자 표시 이름은 필수입니다.");
-  }
-  if (authorLabel.length > 100) {
-    throw new Error("작성자 표시명이 너무 깁니다.");
-  }
-  if (!body) {
-    throw new Error("댓글 내용은 필수입니다.");
-  }
-  if (body.length > 4000) {
-    throw new Error("댓글 내용이 너무 깁니다.");
-  }
-
-  const [created] = await query<WeeklyReportComment>(
-    `insert into public.weekly_report_comments (
-       id, report_id, author_role, author_label, body
-     )
-     values ($1, $2, $3, $4, $5)
-     returning
-       id,
-       report_id as "reportId",
-       author_role as "authorRole",
-       author_label as "authorLabel",
-       body,
-       created_at::text as "createdAt"`,
-    [randomUUID(), reportId, input.authorRole, authorLabel, body]
-  );
-
-  if (!created) {
-    throw new Error("댓글을 저장할 수 없습니다.");
-  }
-
-  return created;
-}
-
-export async function softDeleteComment(commentId: string): Promise<void> {
-  await ensureWeeklyReportSchema();
-
-  const id = cleanText(commentId);
-  if (!id) {
-    throw new Error("댓글 ID는 필수입니다.");
+    throw new Error("보고 ID는 필수입니다.");
   }
 
   await query(
-    `update public.weekly_report_comments
-     set deleted_at = now()
-     where id = $1
-       and deleted_at is null`,
-    [id]
+    `delete from public.angel_weekly_reports r
+     using public.weekly_report_cycles c
+     where r.cycle_id = c.id
+       and r.id = $1
+       and coalesce(c.operating_unit_slug, $2) = $2`,
+    [reportId, operatingUnitSlug]
   );
 }

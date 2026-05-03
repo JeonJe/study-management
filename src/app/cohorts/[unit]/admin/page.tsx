@@ -6,7 +6,7 @@ import {
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
 import { isAuthenticatedForUnit } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -83,10 +83,10 @@ export default async function CohortAdminPage({
   const [{ unit }, query] = await Promise.all([params, searchParams]);
   const authenticated = await isAuthenticatedForUnit(unit);
   if (!authenticated) {
-    redirect(`/?auth=required&unit=${encodeURIComponent(unit)}`);
+    redirect(cohortEntryLoginPath(unit, { auth: "required", returnPath: cohortAwarePath(unit, "/admin") }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unit);
   const page = getRolePage("admin");
   const rolePath = cohortAwarePath(unit, page.path);
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
@@ -101,6 +101,7 @@ export default async function CohortAdminPage({
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
         returnPath={rolePath}
+        unitSlug={unit}
       />
     );
   } else {

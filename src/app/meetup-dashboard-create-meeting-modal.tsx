@@ -2,6 +2,7 @@ import { createMeetingAction } from "@/app/actions";
 import { LeaderChipInput } from "@/app/leader-chip-input";
 import type { CSSProperties } from "react";
 import type { MeetingKind } from "@/lib/meeting-kind";
+import { MAX_MEETING_CAPACITY } from "@/lib/meetup-store";
 
 type CreateMeetingModalProps = {
   selectedDate: string;
@@ -113,7 +114,21 @@ export function CreateMeetingModal({
           >
             <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">방장</span>
-              <LeaderChipInput name="leaders" placeholder="방장 이름 입력" />
+              <LeaderChipInput name="leaders" placeholder="방장 이름 입력" required />
+            </label>
+
+            <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-medium">정원</span>
+              <input
+                name="capacity"
+                type="number"
+                min="0"
+                max={MAX_MEETING_CAPACITY}
+                step="1"
+                className="h-10 min-w-0 rounded-xl border bg-white px-3 outline-none transition focus:ring-2"
+                style={{ borderColor: "var(--line)", "--tw-ring-color": "var(--accent)" } as CSSProperties}
+                placeholder="선택"
+              />
             </label>
 
             <label className="grid min-w-0 gap-1 text-sm sm:col-span-3" style={{ color: "var(--ink-soft)" }}>

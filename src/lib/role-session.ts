@@ -5,6 +5,13 @@ import {
   type RolePageRole,
   normalizeRolePageRole,
 } from "@/lib/role-page";
+import {
+  type OperatingUnitRoleCode,
+  createOperatingUnitRoleAccessToken,
+  normalizeOperatingUnitSlug,
+  verifyOperatingUnitRoleAccessToken,
+  verifyOperatingUnitRoleCode,
+} from "@/lib/operating-unit-store";
 
 const ROLE_COOKIE_NAME = "meetup_role_access";
 const ROLE_COOKIE_MAX_AGE = 60 * 60 * 12;
@@ -21,9 +28,9 @@ function rolePassword(role: RolePageRole): string | null {
   return null;
 }
 
-function makeRoleToken(role: RolePageRole, password: string): string {
+function makeRoleToken(role: RolePageRole, password: string, unitSlug = ""): string {
   return createHash("sha256")
-    .update(`saturday-meetup:${role}:${password}`)
+    .update(`saturday-meetup:${unitSlug}:${role}:${password}`)
     .digest("hex");
 }
 
@@ -37,12 +44,25 @@ function safeEquals(left: string, right: string): boolean {
 
 export function getConfiguredRolePages(): ConfiguredRolePages {
   return {
-    angel: Boolean(rolePassword("angel")),
-    admin: Boolean(rolePassword("admin")),
+    angel: true,
+    admin: true,
   };
 }
 
-export function verifyRolePagePassword(role: RolePageRole, password: string): boolean {
+export async function verifyRolePagePassword(
+  role: RolePageRole,
+  password: string,
+  unitSlug = ""
+): Promise<boolean> {
+  const normalizedUnitSlug = normalizeOperatingUnitSlug(unitSlug);
+  if (normalizedUnitSlug && (role === "angel" || role === "admin")) {
+    return verifyOperatingUnitRoleCode(
+      normalizedUnitSlug,
+      role as OperatingUnitRoleCode,
+      password
+    );
+  }
+
   const expectedPassword = rolePassword(role);
   if (!expectedPassword) return false;
 
@@ -58,13 +78,16 @@ export function verifyRolePagePassword(role: RolePageRole, password: string): bo
 export function createRoleScopedToken(
   role: RolePageRole,
   purpose: string,
-  payload: string
+  payload: string,
+  unitSlug = ""
 ): string | null {
   const password = rolePassword(role);
+  const normalizedUnitSlug = normalizeOperatingUnitSlug(unitSlug);
+  if (normalizedUnitSlug) return null;
   if (!password) return null;
 
   return createHash("sha256")
-    .update(`saturday-meetup:${role}:${password}:${purpose}:${payload}`)
+    .update(`saturday-meetup:${normalizedUnitSlug}:${role}:${password}:${purpose}:${payload}`)
     .digest("hex");
 }
 
@@ -72,42 +95,74 @@ export function verifyRoleScopedToken(
   role: RolePageRole,
   purpose: string,
   payload: string,
-  token: string
+  token: string,
+  unitSlug = ""
 ): boolean {
-  const expectedToken = createRoleScopedToken(role, purpose, payload);
+  const expectedToken = createRoleScopedToken(role, purpose, payload, unitSlug);
   if (!expectedToken || !token) return false;
   return safeEquals(token, expectedToken);
 }
 
-export async function getCurrentRolePageRole(): Promise<RolePageRole | null> {
+export async function getCurrentRolePageRole(unitSlug = ""): Promise<RolePageRole | null> {
+  const normalizedUnitSlug = normalizeOperatingUnitSlug(unitSlug);
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(ROLE_COOKIE_NAME)?.value;
   if (!cookieValue) return null;
 
-  const [roleText, token] = cookieValue.split(".");
+  const parts = cookieValue.split(".");
+  const [roleText, encodedUnitSlugOrToken, maybeToken] = parts;
   const role = normalizeRolePageRole(roleText);
+  const cookieUnitSlug = maybeToken ? decodeURIComponent(encodedUnitSlugOrToken) : "";
+  const token = maybeToken ?? encodedUnitSlugOrToken;
   const password = role ? rolePassword(role) : null;
 
-  if (!role || !password || !token) return null;
+  if (!role || !token) return null;
+  if (normalizedUnitSlug !== normalizeOperatingUnitSlug(cookieUnitSlug)) {
+    return null;
+  }
+
+  if (normalizedUnitSlug && (role === "angel" || role === "admin")) {
+    return (await verifyOperatingUnitRoleAccessToken(
+      normalizedUnitSlug,
+      role as OperatingUnitRoleCode,
+      token
+    ))
+      ? role
+      : null;
+  }
+
+  if (!password) return null;
 
   return safeEquals(token, makeRoleToken(role, password)) ? role : null;
 }
 
 export async function grantRolePageAccess(
   role: RolePageRole,
-  password: string
+  password: string,
+  unitSlug = ""
 ): Promise<boolean> {
-  if (!verifyRolePagePassword(role, password)) {
+  const normalizedUnitSlug = normalizeOperatingUnitSlug(unitSlug);
+  if (!(await verifyRolePagePassword(role, password, normalizedUnitSlug))) {
     return false;
   }
 
   const expectedPassword = rolePassword(role);
-  if (!expectedPassword) return false;
+  if (!expectedPassword && !normalizedUnitSlug) return false;
+  const roleToken = normalizedUnitSlug
+    ? await createOperatingUnitRoleAccessToken(
+        normalizedUnitSlug,
+        role as OperatingUnitRoleCode,
+        password
+      )
+    : null;
+  if (normalizedUnitSlug && !roleToken) return false;
 
   const cookieStore = await cookies();
   cookieStore.set({
     name: ROLE_COOKIE_NAME,
-    value: `${role}.${makeRoleToken(role, expectedPassword)}`,
+    value: normalizedUnitSlug
+      ? `${role}.${encodeURIComponent(normalizedUnitSlug)}.${roleToken}`
+      : `${role}.${makeRoleToken(role, expectedPassword ?? "")}`,
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

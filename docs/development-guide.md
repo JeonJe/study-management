@@ -19,6 +19,7 @@ npm run dev
 | `APP_PASSWORD` | 일반 입장 코드 및 전역 인증 |
 | `ADMIN_PAGE_PASSWORD` | 관리자 역할 화면 |
 | `ANGEL_PAGE_PASSWORD` | 엔젤 역할 화면 |
+| `OPERATING_UNIT_CODE_SECRET` | 기수별 입장/역할 코드 현재값 암호화. 없으면 `APP_PASSWORD` 사용 |
 | `NEXT_PUBLIC_BASE_URL` | 공유/링크 생성 기준 URL |
 
 ## 변경 전 체크
@@ -44,6 +45,8 @@ npm run db:backup
 | 뒷풀이 정산 변경 | `src/lib/afterparty-store.ts` | `src/app/afterparty/[afterpartyId]/page.tsx`, E2E afterparty spec |
 | 멤버 저장 변경 | `src/app/members/member-actions.ts` | `src/lib/member-store.ts`, `src/app/members/member-admin-form.tsx` |
 | 운영 단위 변경 | `src/lib/operating-unit-store.ts` | `src/lib/cohort-routes.ts`, `src/lib/cached-queries.ts` |
+| 역할 인증 변경 | `src/lib/role-session.ts` | `src/app/role-actions.ts`, `src/lib/role-session.test.ts` |
+| 주간보고 변경 | `src/lib/weekly-report-store.ts` | `src/app/weekly-report-actions.ts`, `src/app/angel/reports/**`, `src/app/admin/reports/**` |
 | 히스토리 성능 | `src/lib/history-store.ts` | `src/app/admin/history/**`, `e2e/performance.spec.ts` |
 
 ## 검증 게이트
@@ -81,4 +84,4 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test --project=regressi
 - 캐시 key와 invalidation tag가 변경 데이터 범위를 반영하는가
 - DB 변경이면 `docs/db/01_init_schema.sql`과 store 보정 로직이 함께 갱신됐는가
 - 테스트가 새 동작 또는 회귀 위험을 잠그는가
-
+- UI 변경이면 `docs/ui-ux-principles.md`의 중복 표시, 토스트, 버튼 문구 원칙을 지켰는가

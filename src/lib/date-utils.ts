@@ -22,20 +22,6 @@ export function formatShortDateTime(value: string): string {
   });
 }
 
-export function formatCommentDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return new Intl.DateTimeFormat(APP_LOCALE, {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: APP_TIME_ZONE,
-  }).format(date);
-}
-
 export function pickNearestUpcomingIsoDate(
   dates: string[],
   todayIsoDate: string

@@ -787,20 +787,20 @@ export async function createRsvpsBulk(
        where id = $4
        for update
      ),
-     confirmed_count as (
-       select count(r.id)::int as count
-       from public.rsvps r
-       join meeting_lock ml on ml.id = r.meeting_id
-       where coalesce(r.status, 'confirmed') = 'confirmed'
-     ),
      incoming as (
        select
          i.name,
          i.role,
          i.id,
-         i.position
+         row_number() over () as position
        from unnest($1::text[], $2::text[], $3::uuid[])
-         with ordinality as i(name, role, id, position)
+         as i(name, role, id)
+     ),
+     confirmed_count as (
+       select count(r.id)::int as count
+       from public.rsvps r
+       join meeting_lock ml on ml.id = r.meeting_id
+       where coalesce(r.status, 'confirmed') = 'confirmed'
      ),
      inserted as (
        insert into public.rsvps (id, meeting_id, name, role, status, note)
@@ -890,6 +890,34 @@ export async function promoteWaitlistedRsvp(
   );
 
   return Boolean(row?.promoted);
+}
+
+export async function moveRsvpToWaitlist(
+  meetingId: string,
+  rsvpId: string
+): Promise<boolean> {
+  await ensureSchema();
+
+  const normalizedMeetingId = meetingId.trim();
+  const normalizedRsvpId = rsvpId.trim();
+  if (!normalizedMeetingId || !normalizedRsvpId) {
+    return false;
+  }
+
+  const [row] = await query<{ moved: boolean }>(
+    `with moved as (
+       update public.rsvps
+       set status = 'waitlist'
+       where id = $2
+         and meeting_id = $1
+         and coalesce(status, 'confirmed') = 'confirmed'
+       returning id
+     )
+     select exists(select 1 from moved) as moved`,
+    [normalizedMeetingId, normalizedRsvpId]
+  );
+
+  return Boolean(row?.moved);
 }
 
 async function getMeetingPasswordHash(meetingId: string): Promise<string | null> {

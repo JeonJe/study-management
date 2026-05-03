@@ -65,11 +65,13 @@ export function RoleAccessRequired({
   label,
   invalid,
   returnPath,
+  unitSlug,
 }: {
   role: Exclude<RolePageRole, "member">;
   label: string;
   invalid: boolean;
   returnPath?: string;
+  unitSlug?: string;
 }) {
   return (
     <section className="flex min-h-[52vh] w-full items-center justify-center py-8">
@@ -83,6 +85,7 @@ export function RoleAccessRequired({
 
         <form action={loginRoleAction} className="mt-5 grid gap-3">
           <input type="hidden" name="role" value={role} />
+          {unitSlug ? <input type="hidden" name="unit" value={unitSlug} /> : null}
           {returnPath ? <input type="hidden" name="returnPath" value={returnPath} /> : null}
           <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
             비밀번호

@@ -5,7 +5,7 @@ import {
   revalidateAfterpartyData,
   revalidateMeetupData,
 } from "@/lib/cache-invalidation";
-import { cohortScopedPath } from "@/lib/cohort-routes";
+import { cohortAwarePath } from "@/lib/cohort-routes";
 import { getMeetingTitle, type ParticipantRole } from "@/lib/meetup-store";
 import { loadMemberPreset } from "@/lib/member-store";
 import { requireOperatingUnitSlug } from "@/lib/operating-unit-store";
@@ -147,7 +147,7 @@ export function afterpartyPath(state: DashboardState = {}): string {
 }
 
 export function cohortEntryPath(unitSlug: string): string {
-  return unitSlug.trim() ? cohortScopedPath(unitSlug, "loop-pak") : dashboardPath();
+  return unitSlug.trim() ? cohortAwarePath(unitSlug, "/") : dashboardPath();
 }
 
 export function safeReturnPath(formData: FormData): string | null {

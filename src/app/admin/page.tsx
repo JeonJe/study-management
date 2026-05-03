@@ -1,23 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  RoleAccessRequired,
-  RoleNotConfigured,
-} from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
 import { isGlobalAuthenticated } from "@/lib/auth";
-import {
-  canOpenRolePage,
-  getRolePage,
-} from "@/lib/role-page";
-import {
-  getConfiguredRolePages,
-  getCurrentRolePageRole,
-} from "@/lib/role-session";
-
-type AdminPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
 
 type AdminCard = {
   title: string;
@@ -28,19 +12,11 @@ type AdminCard = {
 
 const GLOBAL_ADMIN_CARDS: AdminCard[] = [
   {
-    title: "목록 관리",
-    description: "이름, 주소, 입장 코드 관리",
+    title: "기수 관리",
+    description: "기수 이름, 접속 주소, 참가자 입장 코드를 관리합니다.",
     href: "/admin/operating-units",
   },
 ];
-
-function singleParam(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) {
-    return value[0] ?? "";
-  }
-
-  return value ?? "";
-}
 
 function AdminHome({
   cards,
@@ -96,44 +72,21 @@ function AdminHome({
   );
 }
 
-export default async function AdminPage({ searchParams }: AdminPageProps) {
+export default async function AdminPage() {
   const authenticated = await isGlobalAuthenticated();
   if (!authenticated) {
     redirect("/?auth=required");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
-  const page = getRolePage("admin");
-  const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
-
-  let content;
-  if (access === "role-not-configured") {
-    content = <RoleNotConfigured label={page.label} />;
-  } else if (access === "role-required") {
-    content = (
-      <RoleAccessRequired
-        role="admin"
-        label={page.label}
-        invalid={singleParam(query.access) === "invalid"}
-        returnPath="/admin"
-      />
-    );
-  } else {
-    content = <AdminHome cards={GLOBAL_ADMIN_CARDS} />;
-  }
-
   return (
     <RoleShell
       activeRole="admin"
-      title="전체 관리자"
-      summary="목록 생성과 전체 설정을 관리합니다."
-      scopeLabel="전체 관리자"
+      title="전체관리자"
+      summary="기수와 참가자 입장 설정을 관리합니다."
+      scopeLabel="전체관리자"
       showRoleNav={false}
     >
-      {content}
+      <AdminHome cards={GLOBAL_ADMIN_CARDS} />
     </RoleShell>
   );
 }

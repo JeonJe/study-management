@@ -13,7 +13,7 @@ import {
   cachedGetMemberAttendanceByPeriod,
   cachedGetTeamAttendanceByPeriod,
 } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   type MemberAttendanceRow,
   type TeamAttendanceRow,
@@ -140,10 +140,6 @@ function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function periodLabel(period: PeriodRange): string {
-  return `${period.start} ~ ${period.end}`;
-}
-
 function SummaryStrip({ data }: { data: HistoryData }) {
   const averageTeamRate =
     data.teams.length > 0
@@ -215,7 +211,7 @@ function TeamStatsList({
   const sortedRows = sortTeams(rows);
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       {sortedRows.map((row) => {
         const href = cohortAwarePath(unitSlug, `/admin/history/teams/${encodeURIComponent(row.team)}?${new URLSearchParams({
           start: period.start,
@@ -223,31 +219,31 @@ function TeamStatsList({
         }).toString()}`);
 
         return (
-        <Link
-          key={row.team}
-          href={href}
-          className="group rounded-xl border bg-white px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm"
-          style={{ borderColor: "var(--line)" }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold group-hover:underline" style={{ color: "var(--ink)" }}>
-                {row.team}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
-                참석 {row.attended}회 / 전체 {row.meetings}회
-              </p>
+          <Link
+            key={row.team}
+            href={href}
+            className="group rounded-xl border bg-white px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm"
+            style={{ borderColor: "var(--line)" }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-extrabold group-hover:underline" style={{ color: "var(--ink)" }}>
+                  {row.team}
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
+                  참석 {row.attended}회 / 전체 {row.meetings}회
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-extrabold" style={{ color: "var(--accent-strong)" }}>
+                  {percent(row.rate)}
+                </p>
+                <p className="text-[11px] font-semibold" style={{ color: "var(--ink-muted)" }}>
+                  참여율
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-extrabold" style={{ color: "var(--accent-strong)" }}>
-                {percent(row.rate)}
-              </p>
-              <p className="text-[11px] font-semibold" style={{ color: "var(--ink-muted)" }}>
-                참여율
-              </p>
-            </div>
-          </div>
-        </Link>
+          </Link>
         );
       })}
     </div>
@@ -316,18 +312,12 @@ function HistoryPanel({
 
   return (
     <section className="grid gap-5">
-      <section className="app-section p-5 sm:p-6">
+      <section className="card-static p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold" style={{ color: "var(--ink)" }}>
               참여 통계
             </h2>
-            <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              선택한 기간의 팀과 멤버 참여 흐름을 확인합니다.
-            </p>
-            <p className="mt-1 text-xs font-semibold" style={{ color: "var(--ink-muted)" }}>
-              {periodLabel(period)}
-            </p>
           </div>
           <div className="flex rounded-xl border p-1" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
             <TabLink tab="team" active={tab === "team"} period={period} unitSlug={unitSlug}>팀별</TabLink>
@@ -344,7 +334,7 @@ function HistoryPanel({
               type="date"
               name="start"
               defaultValue={period.start}
-              className="h-11 rounded-lg border px-3 text-sm font-semibold"
+              className="h-11 rounded-lg border bg-white px-3 text-sm font-semibold shadow-sm"
               style={{ borderColor: "var(--line)", color: "var(--ink)" }}
             />
           </label>
@@ -354,7 +344,7 @@ function HistoryPanel({
               type="date"
               name="end"
               defaultValue={period.end}
-              className="h-11 rounded-lg border px-3 text-sm font-semibold"
+              className="h-11 rounded-lg border bg-white px-3 text-sm font-semibold shadow-sm"
               style={{ borderColor: "var(--line)", color: "var(--ink)" }}
             />
           </label>
@@ -374,8 +364,8 @@ function HistoryPanel({
         ) : null}
       </section>
 
-      <section className="app-section p-5 sm:p-6">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+      <section className="grid gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h3 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
               {tab === "team" ? "팀별 참여율" : "멤버별 참여"}
@@ -390,11 +380,11 @@ function HistoryPanel({
         </div>
 
         {data.error ? (
-          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+          <div className="card-static border-dashed px-4 py-8 text-center text-sm" style={{ color: "var(--ink-muted)" }}>
             참여 통계를 불러오지 못했습니다.
           </div>
         ) : activeRows.length === 0 ? (
-          <div className="rounded-xl border border-dashed px-4 py-8 text-center text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+          <div className="card-static border-dashed px-4 py-8 text-center text-sm" style={{ color: "var(--ink-muted)" }}>
             표시할 참여 데이터가 없습니다.
           </div>
         ) : tab === "team" ? (
@@ -416,10 +406,10 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 
   const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect(`/?auth=required&unit=${encodeURIComponent(unitSlug)}`);
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/admin/history") }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -427,7 +417,15 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
   if (access === "role-not-configured") {
     content = <RoleNotConfigured label={page.label} />;
   } else if (access === "role-required") {
-    content = <RoleAccessRequired role="admin" label={page.label} invalid={false} />;
+    content = (
+      <RoleAccessRequired
+        role="admin"
+        label={page.label}
+        invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, "/admin/history")}
+        unitSlug={unitSlug}
+      />
+    );
   } else {
     const period = normalizePeriod(query);
     const tab = normalizeTab(singleParam(query.tab));

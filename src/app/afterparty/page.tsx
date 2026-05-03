@@ -5,7 +5,7 @@ import {
 } from "@/app/actions";
 import { DatePicker } from "@/app/date-picker";
 import { DashboardHeader } from "@/app/dashboard-header";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import { pickNearestUpcomingIsoDate, toKstIsoDate } from "@/lib/date-utils";
 import { extractHttpUrl } from "@/lib/location-utils";
 import { normalizeMemberName, toTeamLabel, withTeamLabel } from "@/lib/member-label-utils";
@@ -22,7 +22,7 @@ import {
   cachedListSettlementsForAfterparties,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   PARTICIPANT_ROLE_META,
   PARTICIPANT_ROLE_ORDER,
@@ -441,9 +441,12 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
   const unitSlug = singleParam(params.unit);
   const afterpartyBasePath = cohortAwarePath(unitSlug, "/afterparty");
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    const returnPath = requestDate
+      ? `${afterpartyBasePath}?date=${encodeURIComponent(requestDate)}`
+      : afterpartyBasePath;
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath }));
   }
 
   const todayIsoDate = toKstIsoDate(new Date());
@@ -499,29 +502,31 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
     loadError = dataLoadErrorMessage(error);
   }
 
-  const totalSettlementCount = afterpartiesOnDate.reduce(
-    (sum, item) => sum + item.settlementCount,
-    0
-  );
   const totalParticipantCount = afterpartiesOnDate.reduce(
     (sum, item) => sum + item.participantCount,
+    0
+  );
+  const memberParticipantCount = Object.values(participantsByAfterparty).reduce(
+    (sum, rows) => sum + rows.filter((row) => row.role === "student").length,
     0
   );
   const settledParticipantCount = Object.values(participantsByAfterparty).reduce(
     (sum, rows) => sum + rows.filter((row) => row.isSettled).length,
     0
   );
-  const settlementRate =
-    totalParticipantCount > 0
-      ? Math.round((settledParticipantCount / totalParticipantCount) * 100)
-      : 0;
+  const statValues = [
+    { label: "모임 수", value: afterpartiesOnDate.length, suffix: "개", accent: "var(--accent)" },
+    { label: "총 참여", value: totalParticipantCount, suffix: "명", accent: "#0369a1" },
+    { label: "멤버", value: memberParticipantCount, suffix: "명", accent: "#15803d" },
+    { label: "정산 완료", value: settledParticipantCount, suffix: "명", accent: "#0f766e" },
+  ];
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <DashboardHeader title="뒷풀이" activeTab="afterparty" currentDate={selectedDate} unitSlug={unitSlug} />
 
-      <section className="card-static mb-5 p-4 sm:p-5 fade-in">
-        <div className="rounded-xl border px-3 py-3 sm:px-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+      <section className="app-section mb-5 p-4 sm:p-5 fade-in">
+        <div className="section-toolbar px-3 py-3 sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm" style={{ color: "var(--ink-soft)" }}>
               <span className="font-medium">날짜</span>
@@ -545,51 +550,32 @@ export default async function AfterpartyPage({ searchParams }: AfterpartyPagePro
           </section>
         ) : (
           <>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--ink)" }}>요약</h2>
-              <span
-                className="rounded-full border px-2 py-1 text-xs font-semibold"
-                style={{ borderColor: "var(--line)", color: "var(--accent)", backgroundColor: "var(--accent-weak)" }}
-              >
-                정산 완료율 {settlementRate}%
-              </span>
-            </div>
-
-            <div className="mt-3 rounded-xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-              <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
-                참여자 {totalParticipantCount}명 중 {settledParticipantCount}명이 정산 완료되었습니다.
-              </p>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 stagger-children">
-              {[
-                { label: "뒷풀이", value: `${afterpartiesOnDate.length}개`, accent: "var(--accent)" },
-                { label: "참여자", value: `${totalParticipantCount}명`, accent: "#15803d" },
-                { label: "정산", value: `${totalSettlementCount}개`, accent: "#0369a1" },
-              ].map((item) => (
+            <div className="stat-strip mt-4 stagger-children">
+              {statValues.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-xl border p-3"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}
+                  className="stat-item"
+                  style={{ borderLeftColor: item.accent }}
                 >
                   <p className="text-xs" style={{ color: "var(--ink-soft)" }}>{item.label}</p>
                   <p className="mt-1 text-lg font-semibold" style={{ color: "var(--ink)" }}>
-                    <span style={{ color: item.accent }}>{item.value}</span>
+                    <span style={{ color: item.accent }}>{item.value}</span>{item.suffix}
                   </p>
                 </div>
               ))}
             </div>
+
+            {afterpartiesOnDate.length === 0 ? (
+              <p
+                className="mt-4 rounded-xl border border-dashed px-3 py-4 text-center text-sm"
+                style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
+              >
+                선택한 날짜에는 생성된 뒷풀이가 없습니다.
+              </p>
+            ) : null}
           </>
         )}
       </section>
-
-      {!loadError && afterpartiesOnDate.length === 0 ? (
-        <section className="card-static mb-5 p-6 text-center fade-in">
-          <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
-            선택한 날짜의 데이터가 없습니다. 우하단 + 버튼으로 추가하세요.
-          </p>
-        </section>
-      ) : null}
 
       {!loadError && afterpartiesOnDate.length > 0 ? (
         <section className="card-static mb-5 p-4 sm:p-5 fade-in">

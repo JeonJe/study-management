@@ -28,13 +28,14 @@ export async function loginRoleAction(formData: FormData): Promise<void> {
 
   const role = normalizeRolePageRole(stringValue(formData.get("role")));
   const password = stringValue(formData.get("password"));
+  const unitSlug = stringValue(formData.get("unit")).trim();
   const returnPath = safeReturnPath(formData);
 
   if (!role || role === "member") {
     redirect(returnPath ?? "/member");
   }
 
-  const granted = await grantRolePageAccess(role, password);
+  const granted = await grantRolePageAccess(role, password, unitSlug);
   if (!granted) {
     redirect(returnPath ? `${returnPath}?access=invalid` : `/${role}?access=invalid`);
   }

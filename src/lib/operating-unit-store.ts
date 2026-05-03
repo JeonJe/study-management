@@ -1,4 +1,10 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { query } from "@/lib/db";
 
 export const LEGACY_OPERATING_UNIT_SLUG = "default";
@@ -13,9 +19,16 @@ export type OperatingUnit = {
   isDefault: boolean;
   isActive: boolean;
   hasAccessPassword: boolean;
+  accessPassword: string | null;
+  hasAngelPassword: boolean;
+  angelPassword: string | null;
+  hasAdminPassword: boolean;
+  adminPassword: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+const ENCRYPTED_CODE_PREFIX = "enc:v1:";
 
 export function operatingUnitDisplayName(unitSlug?: string, fallback?: string): string {
   const normalizedSlug = normalizeOperatingUnitSlug(unitSlug ?? "");
@@ -67,6 +80,31 @@ export async function ensureOperatingUnitSchema(): Promise<void> {
     await query(
       `alter table public.operating_units
        add column if not exists access_password_hash text`
+    );
+
+    await query(
+      `alter table public.operating_units
+       add column if not exists access_password_plaintext text`
+    );
+
+    await query(
+      `alter table public.operating_units
+       add column if not exists angel_password_hash text`
+    );
+
+    await query(
+      `alter table public.operating_units
+       add column if not exists angel_password_plaintext text`
+    );
+
+    await query(
+      `alter table public.operating_units
+       add column if not exists admin_password_hash text`
+    );
+
+    await query(
+      `alter table public.operating_units
+       add column if not exists admin_password_plaintext text`
     );
 
     await query(
@@ -173,7 +211,7 @@ export async function ensureOperatingUnitColumn(
 export async function listOperatingUnits(): Promise<OperatingUnit[]> {
   await ensureOperatingUnitSchema();
 
-  return query<OperatingUnit>(
+  const units = await query<OperatingUnit>(
     `select
        slug,
        name,
@@ -181,6 +219,11 @@ export async function listOperatingUnits(): Promise<OperatingUnit[]> {
        is_default as "isDefault",
        is_active as "isActive",
        (access_password_hash is not null) as "hasAccessPassword",
+       access_password_plaintext as "accessPassword",
+       (angel_password_hash is not null) as "hasAngelPassword",
+       angel_password_plaintext as "angelPassword",
+       (admin_password_hash is not null) as "hasAdminPassword",
+       admin_password_plaintext as "adminPassword",
        created_at::text as "createdAt",
        updated_at::text as "updatedAt"
      from public.operating_units
@@ -188,6 +231,7 @@ export async function listOperatingUnits(): Promise<OperatingUnit[]> {
      order by is_default desc, is_active desc, created_at asc, slug asc`,
     [LEGACY_OPERATING_UNIT_SLUG]
   );
+  return units.map(normalizeOperatingUnitRow);
 }
 
 export async function getOperatingUnit(
@@ -208,6 +252,11 @@ export async function getOperatingUnit(
        is_default as "isDefault",
        is_active as "isActive",
        (access_password_hash is not null) as "hasAccessPassword",
+       access_password_plaintext as "accessPassword",
+       (angel_password_hash is not null) as "hasAngelPassword",
+       angel_password_plaintext as "angelPassword",
+       (admin_password_hash is not null) as "hasAdminPassword",
+       admin_password_plaintext as "adminPassword",
        created_at::text as "createdAt",
        updated_at::text as "updatedAt"
      from public.operating_units
@@ -216,7 +265,7 @@ export async function getOperatingUnit(
     [normalizedSlug]
   );
 
-  return unit ?? null;
+  return unit ? normalizeOperatingUnitRow(unit) : null;
 }
 
 export async function createOperatingUnit(input: {
@@ -224,6 +273,8 @@ export async function createOperatingUnit(input: {
   name: string;
   description?: string;
   accessPassword?: string;
+  angelPassword?: string;
+  adminPassword?: string;
 }): Promise<OperatingUnit> {
   await ensureOperatingUnitSchema();
 
@@ -235,10 +286,26 @@ export async function createOperatingUnit(input: {
   const accessPassword = input.accessPassword
     ? normalizeAccessPassword(input.accessPassword)
     : "";
+  const angelPassword = input.angelPassword
+    ? normalizeAccessPassword(input.angelPassword)
+    : "";
+  const adminPassword = input.adminPassword
+    ? normalizeAccessPassword(input.adminPassword)
+    : "";
 
   const [created] = await query<OperatingUnit>(
-    `insert into public.operating_units (slug, name, description, access_password_hash)
-     values ($1, $2, nullif($3, ''), $4)
+    `insert into public.operating_units (
+       slug,
+       name,
+       description,
+       access_password_hash,
+       access_password_plaintext,
+       angel_password_hash,
+       angel_password_plaintext,
+       admin_password_hash,
+       admin_password_plaintext
+     )
+     values ($1, $2, nullif($3, ''), $4, $5, $6, $7, $8, $9)
      on conflict (slug) do nothing
      returning
        slug,
@@ -247,6 +314,11 @@ export async function createOperatingUnit(input: {
        is_default as "isDefault",
        is_active as "isActive",
        (access_password_hash is not null) as "hasAccessPassword",
+       access_password_plaintext as "accessPassword",
+       (angel_password_hash is not null) as "hasAngelPassword",
+       angel_password_plaintext as "angelPassword",
+       (admin_password_hash is not null) as "hasAdminPassword",
+       admin_password_plaintext as "adminPassword",
        created_at::text as "createdAt",
        updated_at::text as "updatedAt"`,
     [
@@ -254,13 +326,18 @@ export async function createOperatingUnit(input: {
       name,
       input.description?.trim() ?? "",
       accessPassword ? makeOperatingUnitAccessHash(slug, accessPassword) : null,
+      encryptOperatingUnitCode(accessPassword),
+      angelPassword ? makeOperatingUnitRoleHash(slug, "angel", angelPassword) : null,
+      encryptOperatingUnitCode(angelPassword),
+      adminPassword ? makeOperatingUnitRoleHash(slug, "admin", adminPassword) : null,
+      encryptOperatingUnitCode(adminPassword),
     ]
   );
 
   if (!created) {
     throw new Error("이미 존재하는 주소 식별자입니다.");
   }
-  return created;
+  return normalizeOperatingUnitRow(created);
 }
 
 export async function updateOperatingUnit(input: {
@@ -289,6 +366,11 @@ export async function updateOperatingUnit(input: {
        is_default as "isDefault",
        is_active as "isActive",
        (access_password_hash is not null) as "hasAccessPassword",
+       access_password_plaintext as "accessPassword",
+       (angel_password_hash is not null) as "hasAngelPassword",
+       angel_password_plaintext as "angelPassword",
+       (admin_password_hash is not null) as "hasAdminPassword",
+       admin_password_plaintext as "adminPassword",
        created_at::text as "createdAt",
        updated_at::text as "updatedAt"`,
     [slug, name, input.description?.trim() ?? ""]
@@ -297,7 +379,123 @@ export async function updateOperatingUnit(input: {
   if (!updated) {
     throw new Error("항목을 수정하지 못했습니다.");
   }
-  return updated;
+  return normalizeOperatingUnitRow(updated);
+}
+
+export type OperatingUnitRoleCode = "angel" | "admin";
+
+export async function verifyOperatingUnitRoleCode(
+  slug: string,
+  role: OperatingUnitRoleCode,
+  password: string
+): Promise<boolean> {
+  await ensureOperatingUnitSchema();
+
+  const normalizedSlug = normalizeOperatingUnitSlug(slug);
+  const normalizedPassword = normalizeAccessPassword(password);
+  if (!normalizedSlug || !normalizedPassword) {
+    return false;
+  }
+
+  const column =
+    role === "angel" ? "angel_password_hash" : "admin_password_hash";
+  const [row] = await query<{ passwordHash: string | null; isActive: boolean }>(
+    `select ${column} as "passwordHash", is_active as "isActive"
+     from public.operating_units
+     where slug = $1
+     limit 1`,
+    [normalizedSlug]
+  );
+
+  if (!row?.isActive || !row.passwordHash) {
+    return false;
+  }
+
+  return safeEquals(
+    makeOperatingUnitRoleHash(normalizedSlug, role, normalizedPassword),
+    row.passwordHash
+  );
+}
+
+export async function createOperatingUnitRoleAccessToken(
+  slug: string,
+  role: OperatingUnitRoleCode,
+  password: string
+): Promise<string | null> {
+  const normalizedSlug = normalizeOperatingUnitSlug(slug);
+  const normalizedPassword = normalizeAccessPassword(password);
+  if (!normalizedSlug || !normalizedPassword) {
+    return null;
+  }
+
+  const token = makeOperatingUnitRoleHash(normalizedSlug, role, normalizedPassword);
+  if (await verifyOperatingUnitRoleAccessToken(normalizedSlug, role, token)) {
+    return token;
+  }
+  return null;
+}
+
+export async function verifyOperatingUnitRoleAccessToken(
+  slug: string,
+  role: OperatingUnitRoleCode,
+  token: string
+): Promise<boolean> {
+  await ensureOperatingUnitSchema();
+
+  const normalizedSlug = normalizeOperatingUnitSlug(slug);
+  const normalizedToken = token.trim();
+  if (!normalizedSlug || !normalizedToken) {
+    return false;
+  }
+
+  const column =
+    role === "angel" ? "angel_password_hash" : "admin_password_hash";
+  const [row] = await query<{ passwordHash: string | null; isActive: boolean }>(
+    `select ${column} as "passwordHash", is_active as "isActive"
+     from public.operating_units
+     where slug = $1
+     limit 1`,
+    [normalizedSlug]
+  );
+
+  if (!row?.isActive || !row.passwordHash) {
+    return false;
+  }
+
+  return safeEquals(normalizedToken, row.passwordHash);
+}
+
+export async function setOperatingUnitRoleCode(input: {
+  slug: string;
+  role: OperatingUnitRoleCode;
+  password: string;
+}): Promise<void> {
+  await ensureOperatingUnitSchema();
+
+  const slug = normalizeOperatingUnitSlug(input.slug);
+  const password = normalizeAccessPassword(input.password);
+  if (!slug || !password) {
+    throw new Error("역할 코드가 필요합니다.");
+  }
+
+  const hashColumn =
+    input.role === "angel" ? "angel_password_hash" : "admin_password_hash";
+  const plaintextColumn =
+    input.role === "angel" ? "angel_password_plaintext" : "admin_password_plaintext";
+
+  const updated = await query<{ slug: string }>(
+    `update public.operating_units
+     set ${hashColumn} = $2,
+         ${plaintextColumn} = $3,
+         updated_at = now()
+     where slug = $1
+     returning slug`,
+    [slug, makeOperatingUnitRoleHash(slug, input.role, password), encryptOperatingUnitCode(password)]
+  );
+
+  if (!updated[0]) {
+    throw new Error("역할 코드를 변경하지 못했습니다.");
+  }
 }
 
 export async function assertOperatingUnitAcceptsNewData(slug: string): Promise<void> {
@@ -360,13 +558,11 @@ export async function verifyOperatingUnitAccessToken(
     return false;
   }
 
-  const expectedToken =
-    row.accessPasswordHash ?? fallbackOperatingUnitAccessHash(normalizedSlug);
-  if (!expectedToken) {
+  if (!row.accessPasswordHash) {
     return false;
   }
 
-  return safeEquals(normalizedToken, expectedToken);
+  return safeEquals(normalizedToken, row.accessPasswordHash);
 }
 
 export async function setOperatingUnitAccessCode(input: {
@@ -384,10 +580,11 @@ export async function setOperatingUnitAccessCode(input: {
   const updated = await query<{ slug: string }>(
     `update public.operating_units
      set access_password_hash = $2,
+         access_password_plaintext = $3,
          updated_at = now()
      where slug = $1
      returning slug`,
-    [slug, makeOperatingUnitAccessHash(slug, password)]
+    [slug, makeOperatingUnitAccessHash(slug, password), encryptOperatingUnitCode(password)]
   );
 
   if (!updated[0]) {
@@ -439,12 +636,82 @@ function makeOperatingUnitAccessHash(slug: string, password: string): string {
     .digest("hex");
 }
 
-function fallbackOperatingUnitAccessHash(slug: string): string | null {
-  const appPassword = process.env.APP_PASSWORD?.trim();
-  if (!appPassword) {
+function makeOperatingUnitRoleHash(
+  slug: string,
+  role: OperatingUnitRoleCode,
+  password: string
+): string {
+  return createHash("sha256")
+    .update(`saturday-meetup:operating-unit:${slug}:${role}:${password}`)
+    .digest("hex");
+}
+
+function normalizeOperatingUnitRow(unit: OperatingUnit): OperatingUnit {
+  return {
+    ...unit,
+    accessPassword: decryptOperatingUnitCode(unit.accessPassword),
+    angelPassword: decryptOperatingUnitCode(unit.angelPassword),
+    adminPassword: decryptOperatingUnitCode(unit.adminPassword),
+  };
+}
+
+function encryptionSecret(): string | null {
+  return (
+    process.env.OPERATING_UNIT_CODE_SECRET?.trim() ||
+    process.env.APP_PASSWORD?.trim() ||
+    null
+  );
+}
+
+function encryptionKey(): Buffer | null {
+  const secret = encryptionSecret();
+  if (!secret) return null;
+  return createHash("sha256").update(secret).digest();
+}
+
+function encryptOperatingUnitCode(code: string): string | null {
+  if (!code) return null;
+  const key = encryptionKey();
+  if (!key) return code;
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(code, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return [
+    ENCRYPTED_CODE_PREFIX,
+    iv.toString("base64url"),
+    tag.toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join(".");
+}
+
+function decryptOperatingUnitCode(value: string | null): string | null {
+  if (!value || !value.startsWith(ENCRYPTED_CODE_PREFIX)) return value;
+  const key = encryptionKey();
+  if (!key) return null;
+
+  const [, ivText, tagText, encryptedText] = value.split(".");
+  if (!ivText || !tagText || !encryptedText) return null;
+
+  try {
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      key,
+      Buffer.from(ivText, "base64url")
+    );
+    decipher.setAuthTag(Buffer.from(tagText, "base64url"));
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(encryptedText, "base64url")),
+      decipher.final(),
+    ]);
+    return decrypted.toString("utf8");
+  } catch {
     return null;
   }
-  return makeOperatingUnitAccessHash(slug, appPassword);
 }
 
 function safeEquals(left: string, right: string): boolean {

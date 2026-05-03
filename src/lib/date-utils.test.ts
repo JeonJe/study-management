@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatCommentDateTime,
   formatShortDateTime,
   pickNearestUpcomingIsoDate,
   toKstIsoDate,
@@ -50,6 +49,5 @@ describe("pickNearestUpcomingIsoDate", () => {
 describe("date formatters", () => {
   it("returns empty string for invalid datetime values", () => {
     expect(formatShortDateTime("not-a-date")).toBe("");
-    expect(formatCommentDateTime("not-a-date")).toBe("");
   });
 });

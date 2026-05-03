@@ -25,9 +25,16 @@ function MapLinkCard({
   placeLink: string;
 }) {
   const label = displayLocationText(locationText, placeLink);
+  const query = encodeURIComponent(label);
+  const naverLink = placeLink.includes("naver.") || placeLink.includes("naver.me")
+    ? placeLink
+    : `https://map.naver.com/p/search/${query}`;
+  const kakaoLink = placeLink.includes("kakao.")
+    ? placeLink
+    : `https://map.kakao.com/link/search/${query}`;
 
   return (
-    <div className="mt-2 rounded-xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+    <div className="mt-3 rounded-xl border p-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>
@@ -37,15 +44,26 @@ function MapLinkCard({
             {label}
           </p>
         </div>
-        <a
-          href={placeLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-press inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-3 text-sm font-bold"
-          style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
-        >
-          지도 열기
-        </a>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <a
+            href={naverLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+            style={{ borderColor: "rgba(13, 127, 242, 0.25)", backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
+          >
+            네이버맵
+          </a>
+          <a
+            href={kakaoLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press inline-flex h-9 items-center justify-center rounded-full border px-3 text-sm font-bold"
+            style={{ borderColor: "rgba(250, 204, 21, 0.55)", backgroundColor: "#fef9c3", color: "#854d0e" }}
+          >
+            카카오맵
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -54,8 +72,11 @@ function MapLinkCard({
 export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapPreviewProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isNaver = provider === "naver";
 
   useEffect(() => {
+    if (isNaver) return;
+
     timerRef.current = setTimeout(() => {
       setStatus((prev) => (prev === "loading" ? "error" : prev));
     }, IFRAME_LOAD_TIMEOUT_MS);
@@ -65,7 +86,7 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
         clearTimeout(timerRef.current);
       }
     };
-  }, [provider]);
+  }, [isNaver]);
 
   function handleLoad() {
     if (timerRef.current !== null) {
@@ -81,8 +102,7 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
     setStatus("error");
   }
 
-  const isNaver = provider === "naver";
-  if (status === "error") {
+  if (isNaver || status === "error") {
     return <MapLinkCard locationText={locationText} placeLink={placeLink} />;
   }
 
@@ -92,8 +112,8 @@ export function MapPreview({ provider, embedUrl, locationText, placeLink }: MapP
         className="relative w-full overflow-hidden rounded-xl border"
         style={{
           aspectRatio: isNaver ? "16/9" : "4/3",
-          minHeight: isNaver ? "240px" : "240px",
-          maxHeight: isNaver ? "320px" : "320px",
+          minHeight: "320px",
+          maxHeight: "420px",
           borderColor: "var(--line)",
         }}
       >

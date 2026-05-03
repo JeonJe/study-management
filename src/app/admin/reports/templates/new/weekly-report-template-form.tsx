@@ -107,7 +107,7 @@ export function WeeklyReportTemplateForm({
       </label>
 
       <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
-        전체 안내
+        안내
         <textarea
           name="prompt"
           required
@@ -143,22 +143,14 @@ export function WeeklyReportTemplateForm({
           {sections.map((section, index) => (
             <article
               key={section.id}
-              className="grid gap-4 rounded-2xl border bg-white p-4"
-              style={{ borderColor: index === 0 ? "rgba(13, 127, 242, 0.35)" : "var(--line)" }}
+              className="grid gap-4 rounded-xl border bg-white p-4"
+              style={{ borderColor: "var(--line)" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <strong className="text-sm" style={{ color: "var(--ink)" }}>
                   항목 {index + 1}
                 </strong>
                 <div className="flex items-center gap-2">
-                  {index === 0 ? (
-                    <span
-                      className="rounded-full px-2.5 py-1 text-xs font-bold"
-                      style={{ backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
-                    >
-                      필수
-                    </span>
-                  ) : null}
                   {index > 0 ? (
                     <button
                       type="button"

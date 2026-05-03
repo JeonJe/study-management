@@ -6,7 +6,7 @@ import {
   promoteWaitlistedRsvpAction,
   updateMeetingAction,
 } from "@/app/actions";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import {
   MAX_MEETING_CAPACITY,
   listRsvps,
@@ -17,10 +17,12 @@ import {
   cachedGetMeetingById,
   cachedLoadMemberPreset,
 } from "@/lib/cached-queries";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { redirect } from "next/navigation";
 import { EditManageModal } from "@/app/meetings/[meetingId]/edit-manage-modal";
 import { DeleteConfirmButton } from "@/app/meetings/[meetingId]/delete-confirm-button";
+import { ParticipantActionModal } from "@/app/meetings/[meetingId]/participant-action-modal";
+import { ParticipantAddModal } from "@/app/meetings/[meetingId]/participant-add-modal";
 import { extractHttpUrl, extractMapEmbedInfo } from "@/lib/location-utils";
 import { MapPreview } from "@/app/meetings/[meetingId]/map-preview";
 import {
@@ -41,6 +43,9 @@ import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { QuerySelectFilter } from "@/app/query-select-filter";
 import { LeaderChipInput } from "@/app/leader-chip-input";
 import { SharedFormPasswordField } from "@/app/shared-form-password-field";
+import { OfflineStudyCopyTextButton } from "@/app/offline-study-copy-text-button";
+import { buildMeetingShareText } from "@/lib/share-text";
+import { ToastNotice } from "@/app/toast-notice";
 
 type PageProps = {
   params: Promise<{ meetingId: string }>;
@@ -173,49 +178,6 @@ function LeaderChips({ leaders }: { leaders?: string[] | null }) {
   );
 }
 
-function ParticipantChip({
-  row,
-  meetingId,
-  returnPath,
-  displayName,
-}: {
-  row: RsvpRecord;
-  meetingId: string;
-  returnPath: string;
-  displayName?: string;
-}) {
-  const roleMeta = PARTICIPANT_ROLE_META[row.role];
-  const displayText = `${roleMeta.emoji ? `${roleMeta.emoji} ` : ""}${displayName ?? row.name}`;
-
-  return (
-    <li
-      className="flex h-7 items-center rounded-full border px-2.5 leading-none"
-      style={{
-        borderColor: "var(--line)",
-        backgroundColor: "var(--surface)",
-        color: roleMeta.textColor,
-      }}
-    >
-      <span className="block text-sm font-semibold leading-none">{displayText}</span>
-
-      <form action={deleteRsvpAction}>
-        <input type="hidden" name="meetingId" value={meetingId} />
-        <input type="hidden" name="rsvpId" value={row.id} />
-        <input type="hidden" name="returnPath" value={returnPath} />
-        <DeleteConfirmButton
-          confirmMessage={`${row.name}을(를) 참여자 목록에서 제거합니다.`}
-          className="rounded-full px-1 text-xs font-semibold transition hover:text-rose-600"
-          style={{ color: "var(--ink-muted)" }}
-          aria-label="참여자 제거"
-          title="제거"
-        >
-          ×
-        </DeleteConfirmButton>
-      </form>
-    </li>
-  );
-}
-
 function ProgressBar({ assigned, total }: { assigned: number; total: number }) {
   const percent = total > 0 ? Math.round((assigned / total) * 100) : 0;
   return (
@@ -262,23 +224,7 @@ function resolveParticipantFeedback(status: string, source: string): Participant
     };
   }
 
-  if (status === "waitlist-full") {
-    return {
-      title: "승격할 수 없습니다",
-      description: "정원이 이미 가득 차 있어 대기 인원을 확정으로 바꾸지 못했습니다.",
-      tone: "notice",
-    };
-  }
-
   return null;
-}
-
-function capacityLabel(
-  meeting: { capacity: number | null; totalCount: number },
-  waitlistCount: number
-): string | null {
-  if (meeting.capacity === null) return null;
-  return `확정 ${meeting.totalCount}/${meeting.capacity} · 대기 ${waitlistCount}`;
 }
 
 function ParticipantFeedbackBanner({ feedback }: { feedback: ParticipantFeedback }) {
@@ -322,9 +268,13 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
   const participantSource = singleParam(query.participantSource);
   const participantDraft = singleParam(query.participantDraft);
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    const returnPath = cohortAwarePath(
+      unitSlug,
+      `/meetings/${encodeURIComponent(meetingId)}${date ? `?date=${encodeURIComponent(date)}` : ""}`
+    );
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath }));
   }
 
   const [meeting, memberPreset] = await Promise.all([
@@ -469,7 +419,6 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
   ];
 
   const assignedNameSet = new Set(rsvps.map((row) => normalizeName(row.name)));
-  const waitlistSummary = capacityLabel(meeting, waitlistRsvps.length);
 
   const operationEntries = operationRoleOrder.flatMap((role) =>
     (operationNamesByRole.get(role) ?? []).map((name) => ({ name, role }))
@@ -524,12 +473,21 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
   const returnQuery = returnParams.toString();
   const meetingBasePath = cohortAwarePath(unitSlug, `/meetings/${meetingId}`);
   const returnPath = `${meetingBasePath}${returnQuery ? `?${returnQuery}` : ""}`;
+  const sharePath = `${meetingBasePath}?date=${encodeURIComponent(date || meeting.meetingDate)}`;
+  const shareText = buildMeetingShareText({
+    meeting,
+    rsvps,
+    teamLabelByMemberName: teamLabelByName,
+  });
   const manualReturnPath = `${returnPath}#participant-manual-add`;
   const assignmentReturnPath = `${returnPath}#team-assignment`;
   const backPath = cohortAwarePath(unitSlug, date ? `/?date=${date}` : "/");
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      {participantStatus === "waitlist-full" ? (
+        <ToastNotice message="정원이 가득 찼습니다" tone="danger" />
+      ) : null}
       <div className="mb-4">
         <Link
           href={backPath}
@@ -568,210 +526,177 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                   <span className="font-semibold">방장:</span>
                   <LeaderChips leaders={meeting.leaders} />
                 </div>
-                {(() => {
-                  const placeLink = extractHttpUrl(meeting.location);
-                  const embedInfo = placeLink ? extractMapEmbedInfo(placeLink) : null;
-                  return embedInfo && placeLink ? (
-                    <MapPreview
-                      provider={embedInfo.provider}
-                      embedUrl={embedInfo.embedUrl}
-                      locationText={meeting.location}
-                      placeLink={placeLink}
-                    />
-                  ) : null;
-                })()}
-                <section
-                  className="relative mt-3 rotate-[-0.4deg] rounded-sm border p-4 shadow-sm"
-                  style={{
-                    borderColor: "#fde68a",
-                    backgroundColor: "#fef3c7",
-                    boxShadow: "0 10px 18px rgba(180, 83, 9, 0.12)",
-                  }}
-                >
-                  <span
-                    className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 -translate-y-1/2 rotate-1 rounded-sm"
-                    style={{ backgroundColor: "rgba(253, 186, 116, 0.42)" }}
-                    aria-hidden="true"
-                  />
-                  <p className="text-xs font-extrabold" style={{ color: "#92400e" }}>메모</p>
-                  <p className="mt-2 text-sm leading-6" style={{ color: "#78350f" }}>
-                    {meeting.description || "등록된 메모가 없습니다."}
-                  </p>
-                </section>
-                <dl className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-                  {[
-                    { label: "총원", value: `${meeting.totalCount}명` },
-                    { label: "멤버", value: `${meeting.studentCount}명` },
-                    { label: "운영진", value: `${meeting.operationCount}명` },
-                    ...(meeting.capacity !== null ? [{ label: "정원", value: `${meeting.capacity}명` }] : []),
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-xl border px-3 py-2"
-                      style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-                    >
-                      <dt className="text-[11px] font-bold" style={{ color: "var(--ink-muted)" }}>
-                        {item.label}
-                      </dt>
-                      <dd className="mt-0.5 text-base font-extrabold" style={{ color: "var(--ink)" }}>
-                        {item.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                {waitlistSummary ? (
-                  <p
-                    className="mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-bold"
-                    style={{
-                      borderColor: "rgba(13, 127, 242, 0.25)",
-                      backgroundColor: "var(--accent-weak)",
-                      color: "var(--accent-strong)",
-                    }}
-                  >
-                    {waitlistSummary}
-                  </p>
-                ) : null}
-                <a
-                  href="#team-assignment"
-                  className="btn-press mt-3 inline-flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold lg:hidden"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--accent)" }}
-                >
-                  내 이름 빠르게 추가
-                </a>
               </div>
 
-              <EditManageModal defaultOpen={Boolean(manageErrorMessage)}>
-                <section
-                  className="mb-4 rounded-xl border p-4"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-                >
-                  <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
-                    {meeting.hasPassword ? "이 방은 비밀번호 보호 중입니다." : "현재 방 비밀번호가 없습니다."}
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
-                    {meeting.hasPassword
-                      ? "메모, 일정, 장소, 삭제 같은 주요 메타데이터를 바꾸려면 현재 방 비밀번호가 필요합니다."
-                      : "원하면 여기서 비밀번호를 추가해 이후 주요 메타데이터 수정과 삭제를 제한할 수 있습니다."}
-                  </p>
-                  {meeting.hasPassword ? (
-                    <SharedFormPasswordField
-                      label="현재 방 비밀번호"
-                      placeholder="한 번 입력하면 저장과 삭제에 같이 사용돼요"
-                      helperText="이 비밀번호는 이 모달의 저장/삭제 작업에 함께 사용됩니다."
-                      errorText={managePasswordFieldMessage}
-                      className="mt-3"
-                      targets={[
-                        { formId: "meeting-update-form", name: "meetingPassword" },
-                        { formId: "meeting-delete-form", name: "meetingPassword" },
-                      ]}
-                    />
-                  ) : null}
-                </section>
-
-                <section
-                  className="rounded-xl border p-4"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-                >
-                  <h3 className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>모임 정보 수정</h3>
-                  <form
-                    id="meeting-update-form"
-                    action={updateMeetingAction}
-                    className="mt-3 grid gap-2 text-sm"
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <OfflineStudyCopyTextButton textToCopy={shareText} linkPath={sharePath} />
+                <EditManageModal defaultOpen={Boolean(manageErrorMessage)}>
+                  <section
+                    className="mb-4 rounded-xl border p-4"
+                    style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
                   >
-                    <input type="hidden" name="meetingId" value={meeting.id} />
-                    <input type="hidden" name="returnPath" value={returnPath} />
-                    <input
-                      name="title" required defaultValue={meeting.title}
-                      className="h-10 rounded-lg border bg-white px-3"
-                      style={{ borderColor: "var(--line)" }}
-                    />
-                    <input
-                      name="location" required defaultValue={meeting.location}
-                      className="h-10 rounded-lg border bg-white px-3"
-                      style={{ borderColor: "var(--line)" }}
-                      placeholder="장소명 + 링크 입력 시 메인 카드에서 장소 텍스트가 링크로 표시됩니다"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        name="meetingDate" type="date" required defaultValue={meeting.meetingDate}
-                        className="h-10 rounded-lg border bg-white px-3"
-                        style={{ borderColor: "var(--line)" }}
-                      />
-                      <input
-                        name="startTime" type="time" required defaultValue={meeting.startTime}
-                        className="h-10 rounded-lg border bg-white px-3"
-                        style={{ borderColor: "var(--line)" }}
-                      />
-                    </div>
-                    <input
-                      name="description" defaultValue={meeting.description ?? ""}
-                      className="h-10 rounded-lg border bg-white px-3"
-                      style={{ borderColor: "var(--line)" }}
-                      placeholder="설명"
-                    />
-                    <input
-                      name="capacity"
-                      type="number"
-                      min="0"
-                      max={MAX_MEETING_CAPACITY}
-                      step="1"
-                      defaultValue={meeting.capacity ?? ""}
-                      className="h-10 rounded-lg border bg-white px-3"
-                      style={{ borderColor: "var(--line)" }}
-                      placeholder="정원 (비워두면 제한 없음)"
-                    />
-                    <input
-                      name="nextMeetingPassword"
-                      type="password"
-                      className="h-10 rounded-lg border bg-white px-3"
-                      style={{ borderColor: "var(--line)" }}
-                      placeholder={meeting.hasPassword ? "새 비밀번호 (비워두면 유지)" : "방 비밀번호 설정 (선택)"}
-                      autoComplete="new-password"
-                    />
+                    <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+                      {meeting.hasPassword ? "이 방은 비밀번호 보호 중입니다." : "현재 방 비밀번호가 없습니다."}
+                    </p>
+                    <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
+                      {meeting.hasPassword
+                        ? "메모, 일정, 장소, 삭제 같은 주요 메타데이터를 바꾸려면 현재 방 비밀번호가 필요합니다."
+                        : "원하면 여기서 비밀번호를 추가해 이후 주요 메타데이터 수정과 삭제를 제한할 수 있습니다."}
+                    </p>
                     {meeting.hasPassword ? (
-                      <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}>
-                        <input type="checkbox" name="clearMeetingPassword" value="true" />
-                        비밀번호 보호 해제
-                      </label>
+                      <SharedFormPasswordField
+                        label="현재 방 비밀번호"
+                        placeholder="한 번 입력하면 저장과 삭제에 같이 사용돼요"
+                        helperText="이 비밀번호는 이 모달의 저장/삭제 작업에 함께 사용됩니다."
+                        errorText={managePasswordFieldMessage}
+                        className="mt-3"
+                        targets={[
+                          { formId: "meeting-update-form", name: "meetingPassword" },
+                          { formId: "meeting-delete-form", name: "meetingPassword" },
+                        ]}
+                      />
                     ) : null}
-                    <LeaderChipInput
-                      name="leaders"
-                      initialLeaders={meeting.leaders}
-                      placeholder="방장 이름 입력"
-                    />
-                    <button
-                      type="submit"
-                      className="btn-press h-10 rounded-lg text-sm font-semibold text-white"
-                      style={{ backgroundColor: "var(--ink)" }}
-                    >
-                      저장
-                    </button>
-                  </form>
-                </section>
+                  </section>
 
-                <section
-                  className="mt-4 rounded-xl border p-4"
-                  style={{ borderColor: "#fecaca", backgroundColor: "var(--danger-bg)" }}
-                >
-                  <h3 className="text-xs font-semibold" style={{ color: "var(--danger)" }}>모임 삭제</h3>
-                  <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
-                    이 모임과 참여자 데이터가 함께 삭제됩니다.
-                  </p>
-                  <form id="meeting-delete-form" action={deleteMeetingAction} className="mt-3">
-                    <input type="hidden" name="meetingId" value={meeting.id} />
-                    <input type="hidden" name="returnDate" value={meeting.meetingDate} />
-                    <input type="hidden" name="returnPath" value={returnPath} />
-                    <DeleteConfirmButton
-                      confirmMessage={`"${meeting.title}" 모임과 모든 참여자 데이터가 삭제됩니다. 계속하시겠습니까?`}
-                      className="btn-press h-9 rounded-lg px-3 text-xs font-semibold text-white"
-                      style={{ backgroundColor: "var(--danger)" }}
+                  <section
+                    className="rounded-xl border p-4"
+                    style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
+                  >
+                    <h3 className="text-xs font-semibold" style={{ color: "var(--ink-soft)" }}>모임 정보 수정</h3>
+                    <form
+                      id="meeting-update-form"
+                      action={updateMeetingAction}
+                      className="mt-3 grid gap-2 text-sm"
                     >
-                      이 모임 삭제
-                    </DeleteConfirmButton>
-                  </form>
-                </section>
-              </EditManageModal>
+                      <input type="hidden" name="meetingId" value={meeting.id} />
+                      <input type="hidden" name="returnPath" value={returnPath} />
+                      <input name="title" required defaultValue={meeting.title} className="h-10 rounded-lg border bg-white px-3" style={{ borderColor: "var(--line)" }} />
+                      <input
+                        name="location"
+                        required
+                        defaultValue={meeting.location}
+                        className="h-10 rounded-lg border bg-white px-3"
+                        style={{ borderColor: "var(--line)" }}
+                        placeholder="장소명 + 링크 입력 시 메인 카드에서 장소 텍스트가 링크로 표시됩니다"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input name="meetingDate" type="date" required defaultValue={meeting.meetingDate} className="h-10 rounded-lg border bg-white px-3" style={{ borderColor: "var(--line)" }} />
+                        <input name="startTime" type="time" required defaultValue={meeting.startTime} className="h-10 rounded-lg border bg-white px-3" style={{ borderColor: "var(--line)" }} />
+                      </div>
+                      <input name="description" defaultValue={meeting.description ?? ""} className="h-10 rounded-lg border bg-white px-3" style={{ borderColor: "var(--line)" }} placeholder="설명" />
+                      <input
+                        name="capacity"
+                        type="number"
+                        min="0"
+                        max={MAX_MEETING_CAPACITY}
+                        step="1"
+                        defaultValue={meeting.capacity ?? ""}
+                        className="h-10 rounded-lg border bg-white px-3"
+                        style={{ borderColor: "var(--line)" }}
+                        placeholder="정원 (비워두면 제한 없음)"
+                      />
+                      <input
+                        name="nextMeetingPassword"
+                        type="password"
+                        className="h-10 rounded-lg border bg-white px-3"
+                        style={{ borderColor: "var(--line)" }}
+                        placeholder={meeting.hasPassword ? "새 비밀번호 (비워두면 유지)" : "방 비밀번호 설정 (선택)"}
+                        autoComplete="new-password"
+                      />
+                      {meeting.hasPassword ? (
+                        <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}>
+                          <input type="checkbox" name="clearMeetingPassword" value="true" />
+                          비밀번호 보호 해제
+                        </label>
+                      ) : null}
+                      <LeaderChipInput name="leaders" initialLeaders={meeting.leaders} placeholder="방장 이름 입력" />
+                      <button type="submit" className="btn-press h-10 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: "var(--ink)" }}>
+                        저장
+                      </button>
+                    </form>
+                  </section>
+
+                  <section
+                    className="mt-4 rounded-xl border p-4"
+                    style={{ borderColor: "#fecaca", backgroundColor: "var(--danger-bg)" }}
+                  >
+                    <h3 className="text-xs font-semibold" style={{ color: "var(--danger)" }}>모임 삭제</h3>
+                    <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
+                      이 모임과 참여자 데이터가 함께 삭제됩니다.
+                    </p>
+                    <form id="meeting-delete-form" action={deleteMeetingAction} className="mt-3">
+                      <input type="hidden" name="meetingId" value={meeting.id} />
+                      <input type="hidden" name="returnDate" value={meeting.meetingDate} />
+                      <input type="hidden" name="returnPath" value={returnPath} />
+                      <DeleteConfirmButton
+                        confirmMessage={`"${meeting.title}" 모임과 모든 참여자 데이터가 삭제됩니다. 계속하시겠습니까?`}
+                        className="btn-press h-9 rounded-lg px-3 text-xs font-semibold text-white"
+                        style={{ backgroundColor: "var(--danger)" }}
+                      >
+                        이 모임 삭제
+                      </DeleteConfirmButton>
+                    </form>
+                  </section>
+                </EditManageModal>
+              </div>
             </div>
+
+            {(() => {
+              const mapLink = extractHttpUrl(meeting.location);
+              const embedInfo = mapLink ? extractMapEmbedInfo(mapLink) : null;
+              return embedInfo && mapLink ? (
+                <MapPreview
+                  provider={embedInfo.provider}
+                  embedUrl={embedInfo.embedUrl}
+                  locationText={meeting.location}
+                  placeLink={mapLink}
+                />
+              ) : null;
+            })()}
+
+            <section
+              className="relative mt-3 rotate-[-0.4deg] rounded-sm border p-4 shadow-sm"
+              style={{
+                borderColor: "#fde68a",
+                backgroundColor: "#fef3c7",
+                boxShadow: "0 10px 18px rgba(180, 83, 9, 0.12)",
+              }}
+            >
+              <span
+                className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 -translate-y-1/2 rotate-1 rounded-sm"
+                style={{ backgroundColor: "rgba(253, 186, 116, 0.42)" }}
+                aria-hidden="true"
+              />
+              <p className="text-xs font-extrabold" style={{ color: "#92400e" }}>메모</p>
+              <p className="mt-2 text-sm leading-6" style={{ color: "#78350f" }}>
+                {meeting.description || "등록된 메모가 없습니다."}
+              </p>
+            </section>
+            <dl className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              {(meeting.capacity !== null
+                ? [
+                    { label: "확정", value: `${meeting.totalCount}/${meeting.capacity}명` },
+                    { label: "대기", value: `${waitlistRsvps.length}명` },
+                    { label: "운영진", value: `${meeting.operationCount}명` },
+                  ]
+                : [
+                    { label: "멤버", value: `${meeting.studentCount}명` },
+                    { label: "운영진", value: `${meeting.operationCount}명` },
+                    { label: "전체 확정", value: `${meeting.totalCount}명` },
+                  ]).map((item) => (
+                <div key={item.label} className="rounded-xl border px-3 py-2" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
+                  <dt className="text-[11px] font-bold" style={{ color: "var(--ink-muted)" }}>{item.label}</dt>
+                  <dd className="mt-0.5 text-base font-extrabold" style={{ color: "var(--ink)" }}>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <a
+              href="#team-assignment"
+              className="btn-press mt-3 inline-flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold lg:hidden"
+              style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--accent)" }}
+            >
+              내 이름 빠르게 추가
+            </a>
           </section>
 
           <section className="mt-3 card-static w-full p-0 lg:mt-0">
@@ -783,55 +708,19 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                 <div>
                   <h2 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>참여자 관리</h2>
                   <p className="mt-1 text-xs font-semibold" style={{ color: "var(--ink-muted)" }}>
-                    이름을 입력하거나 오른쪽 목록에서 빠르게 추가합니다.
+                    오른쪽 목록에서 빠르게 추가하거나 이름으로 추가합니다.
                   </p>
                 </div>
+                <ParticipantAddModal
+                  meetingId={meeting.id}
+                  returnDate={date || meeting.meetingDate}
+                  returnPath={manualReturnPath}
+                  defaultNames={manualParticipantDraft}
+                  feedback={manualParticipantFeedback}
+                />
               </div>
             </div>
             <div id="participant-manual-add" className="scroll-mt-24 px-4 pt-4" />
-            {manualParticipantFeedback ? (
-              <div className="px-4 pt-3">
-                <ParticipantFeedbackBanner feedback={manualParticipantFeedback} />
-              </div>
-            ) : null}
-            <form
-              action={bulkCreateRsvpsAction}
-              className="px-4 pt-3"
-            >
-              <input type="hidden" name="meetingId" value={meeting.id} />
-              <input type="hidden" name="returnDate" value={date || meeting.meetingDate} />
-              <input type="hidden" name="returnPath" value={manualReturnPath} />
-              <input type="hidden" name="mutationSource" value="manual-add" />
-              <label className="mb-2 block text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
-                이름으로 추가
-              </label>
-              <div className="flex overflow-hidden rounded-xl border bg-white shadow-sm" style={{ borderColor: manualParticipantFeedback ? "#fda4af" : "var(--line)" }}>
-                <input
-                  name="names"
-                  defaultValue={manualParticipantDraft}
-                  className="h-12 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
-                  placeholder="예: 김민수 또는 김민수, 박서준"
-                />
-                <PendingSubmitButton
-                  idleLabel="추가"
-                  pendingLabel="추가중..."
-                  className="btn-press h-12 shrink-0 border-l px-4 text-sm font-bold text-white"
-                  style={{ borderColor: "var(--accent)", backgroundColor: "var(--accent)" }}
-                />
-              </div>
-            </form>
-            <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed" style={{ borderColor: "#bfdbfe", backgroundColor: "#eff6ff", color: "var(--ink-soft)" }}>
-              <span
-                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold leading-none"
-                style={{ borderColor: "#93c5fd", backgroundColor: "white", color: "#2563eb" }}
-                aria-hidden="true"
-              >
-                i
-              </span>
-              <p>
-                직접 입력은 이름 기준으로 엔젤/운영진을 자동 분류합니다. 프리셋에 없는 이름은 멤버로 추가됩니다.
-              </p>
-            </div>
             {sortedParticipantRows.length > 0 ? (
               <div
                 className="m-4 rounded-2xl border p-4"
@@ -858,12 +747,13 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                       </div>
                       <ul className="flex flex-wrap gap-2">
                         {section.rows.map((row) => (
-                          <ParticipantChip
+                          <ParticipantActionModal
                             key={row.id}
                             row={row}
                             meetingId={meeting.id}
                             returnPath={returnPath}
                             displayName={row.name}
+                            canMoveToWaitlist={meeting.capacity !== null}
                           />
                         ))}
                       </ul>
@@ -898,17 +788,31 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                         <span className="min-w-0 truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
                           {withTeamLabel(row.name, teamLabelByName)}
                         </span>
-                        <form action={promoteWaitlistedRsvpAction}>
-                          <input type="hidden" name="meetingId" value={meeting.id} />
-                          <input type="hidden" name="rsvpId" value={row.id} />
-                          <input type="hidden" name="returnPath" value={returnPath} />
-                          <PendingSubmitButton
-                            idleLabel="승격"
-                            pendingLabel="승격중..."
-                            className="btn-press h-8 rounded-md px-3 text-xs font-bold text-white"
-                            style={{ backgroundColor: "var(--accent)" }}
-                          />
-                        </form>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <form action={promoteWaitlistedRsvpAction}>
+                            <input type="hidden" name="meetingId" value={meeting.id} />
+                            <input type="hidden" name="rsvpId" value={row.id} />
+                            <input type="hidden" name="returnPath" value={returnPath} />
+                            <PendingSubmitButton
+                              idleLabel="확정"
+                              pendingLabel="확정 중"
+                              className="btn-press h-8 rounded-md px-3 text-xs font-bold text-white"
+                              style={{ backgroundColor: "var(--accent)" }}
+                            />
+                          </form>
+                          <form action={deleteRsvpAction}>
+                            <input type="hidden" name="meetingId" value={meeting.id} />
+                            <input type="hidden" name="rsvpId" value={row.id} />
+                            <input type="hidden" name="returnPath" value={returnPath} />
+                            <DeleteConfirmButton
+                              confirmMessage={`${row.name}의 대기 요청을 취소합니다.`}
+                              className="btn-press h-8 rounded-md border px-3 text-xs font-bold"
+                              style={{ borderColor: "#fecaca", color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+                            >
+                              취소
+                            </DeleteConfirmButton>
+                          </form>
+                        </div>
                       </li>
                     ))}
                   </ul>

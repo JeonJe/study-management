@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { OfflineStudyCopyTextButton } from "@/app/offline-study-copy-text-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   type TeamMemberGroup,
   loadMemberPreset,
@@ -20,7 +19,6 @@ import {
   getConfiguredRolePages,
   getCurrentRolePageRole,
 } from "@/lib/role-session";
-import { buildCycleShareText } from "@/lib/weekly-report-share-text";
 import {
   type AngelWeeklyReport,
   type WeeklyReportCycle,
@@ -42,7 +40,6 @@ type AdminReportCycleDetailData = {
   template: WeeklyReportTemplate | null;
   teamGroups: TeamMemberGroup[];
   reports: AngelWeeklyReport[];
-  shareText: string;
   error: boolean;
 };
 
@@ -56,6 +53,12 @@ function singleParam(value: string | string[] | undefined): string {
 
 function shortDateTime(value: string): string {
   return formatShortDateTime(value);
+}
+
+function formatWeekLabel(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  return normalized.endsWith("주차") ? normalized : `${normalized}주차`;
 }
 
 async function safeLoadCycleDetail(
@@ -73,19 +76,11 @@ async function safeLoadCycleDetail(
           getWeeklyReportTemplateById(cycle.templateId, unitSlug),
         ])
       : [[], null];
-    const shareText = cycle
-      ? await buildCycleShareText(cycle.id, unitSlug).catch((error) => {
-          console.error("Failed to build weekly report share text", error);
-          return "";
-        })
-      : "";
-
     return {
       cycle,
       template,
       teamGroups: preset.teamGroups,
       reports,
-      shareText,
       error: false,
     };
   } catch (error) {
@@ -95,7 +90,6 @@ async function safeLoadCycleDetail(
       template: null,
       teamGroups: [],
       reports: [],
-      shareText: "",
       error: true,
     };
   }
@@ -113,7 +107,6 @@ function CycleDetailPanel({
   template,
   teamGroups,
   reports,
-  shareText,
   loadError,
   unitSlug,
 }: {
@@ -121,7 +114,6 @@ function CycleDetailPanel({
   template: WeeklyReportTemplate | null;
   teamGroups: TeamMemberGroup[];
   reports: AngelWeeklyReport[];
-  shareText: string;
   loadError: boolean;
   unitSlug: string;
 }) {
@@ -145,6 +137,7 @@ function CycleDetailPanel({
   const missingTeams = teamGroups.filter((team) => !submittedTeamNames.has(team.teamName));
   const sections = template?.sections ?? DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS;
   const prompt = template?.prompt || cycle.prompt || "팀 분위기, 참여 상황, 도움이 필요한 부분을 자유롭게 적어주세요.";
+  const weekLabel = formatWeekLabel(cycle.weekLabel);
 
   return (
     <section className="grid gap-5">
@@ -165,47 +158,36 @@ function CycleDetailPanel({
         </Link>
       </div>
 
-      <article className="card-static p-5 sm:p-7">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <article className="card-static p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold" style={{ color: "var(--ink)" }}>
               {cycle.title}
             </h2>
             <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              {cycle.weekLabel}
+              {weekLabel}
               {cycle.dueDate ? ` · 마감 ${cycle.dueDate}` : ""}
-              {template ? ` · ${template.name}` : " · 템플릿 없음"}
+              {template ? ` · 보고 템플릿 ${template.name}` : " · 템플릿 없음"}
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-              <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>제출 팀</p>
-              <p className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                {submittedTeamNames.size}/{teamGroups.length}
-              </p>
-            </div>
-            <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-              <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>미제출</p>
-              <p className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                {missingTeams.length}
-              </p>
-            </div>
-            <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}>
-              <p className="text-xs font-bold" style={{ color: "var(--ink-muted)" }}>보고</p>
-              <p className="mt-1 text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                {reports.length}
-              </p>
-            </div>
-          </div>
+          <span
+            className="inline-flex h-9 items-center rounded-full border px-3 text-sm font-extrabold"
+            style={{
+              borderColor: "rgba(13, 127, 242, 0.22)",
+              backgroundColor: "var(--accent-weak)",
+              color: "var(--accent-strong)",
+            }}
+          >
+            제출 현황 {submittedTeamNames.size}/{teamGroups.length}
+          </span>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <OfflineStudyCopyTextButton textToCopy={shareText} />
+        <div className="mt-4 rounded-xl border px-4 py-3 text-sm leading-6" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}>
+          <span className="font-bold" style={{ color: "var(--ink)" }}>
+            안내
+          </span>
+          <span className="ml-2">{prompt}</span>
         </div>
-
-        <p className="mt-4 rounded-2xl border px-4 py-3 text-sm leading-6" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}>
-          {prompt}
-        </p>
       </article>
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -227,16 +209,16 @@ function CycleDetailPanel({
                   </span>
                 </div>
 
-                <dl className="mt-4 grid gap-3 text-sm">
+                <dl className="mt-4 border-t text-sm" style={{ borderColor: "var(--line)" }}>
                   {sections.map((section) => {
                     const value = reportValue(report, section.key);
                     if (!value) return null;
                     return (
-                      <div key={section.key} className="rounded-2xl border p-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}>
-                        <dt className="font-bold" style={{ color: "var(--ink)" }}>
+                      <div key={section.key} className="grid gap-1 border-b py-4 last:border-b-0 sm:grid-cols-[160px_minmax(0,1fr)]" style={{ borderColor: "var(--line)" }}>
+                        <dt className="font-extrabold" style={{ color: "var(--ink)" }}>
                           {section.title}
                         </dt>
-                        <dd className="mt-2 whitespace-pre-wrap leading-6" style={{ color: "var(--ink-muted)" }}>
+                        <dd className="whitespace-pre-wrap leading-6" style={{ color: "var(--ink-soft)" }}>
                           {value}
                         </dd>
                       </div>
@@ -252,14 +234,21 @@ function CycleDetailPanel({
           <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
             미제출 팀
           </h3>
-          {missingTeams.length === 0 ? (
+          <p className="mt-1 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
+            현재 등록된 팀 기준
+          </p>
+          {teamGroups.length === 0 ? (
+            <p className="mt-3 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+              등록된 팀이 없습니다. 멤버 관리에서 팀과 엔젤을 추가하면 이 주차의 보고 대상이 표시됩니다.
+            </p>
+          ) : missingTeams.length === 0 ? (
             <p className="mt-3 text-sm" style={{ color: "var(--ink-muted)" }}>
               모든 팀이 제출했습니다.
             </p>
           ) : (
             <div className="mt-3 grid gap-2">
               {missingTeams.map((team) => (
-                <div key={team.teamName} className="rounded-2xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)" }}>
+                <div key={team.teamName} className="border-t py-3 first:border-t-0" style={{ borderColor: "var(--line)" }}>
                   <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
                     {team.teamName}
                   </p>
@@ -280,16 +269,19 @@ export default async function AdminReportCycleDetailPage({
   params,
   searchParams,
 }: AdminReportCycleDetailPageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const [routeParams, query] = await Promise.all([params, searchParams]);
+  const unitSlug = singleParam(query.unit);
+  const detailPath = `/admin/reports/cycles/${encodeURIComponent(routeParams.cycleId)}`;
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, routeParams, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    params,
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, detailPath) }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -302,10 +294,11 @@ export default async function AdminReportCycleDetailPage({
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, detailPath)}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    const unitSlug = singleParam(query.unit);
     const data = await safeLoadCycleDetail(routeParams.cycleId, unitSlug);
     content = (
       <CycleDetailPanel
@@ -313,7 +306,6 @@ export default async function AdminReportCycleDetailPage({
         template={data.template}
         teamGroups={data.teamGroups}
         reports={data.reports}
-        shareText={data.shareText}
         loadError={data.error}
         unitSlug={unitSlug}
       />

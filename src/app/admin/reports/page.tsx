@@ -5,9 +5,9 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
-import { deleteWeeklyReportTemplateAction } from "@/app/weekly-report-actions";
-import { isGlobalAuthenticated } from "@/lib/auth";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { ToastNotice } from "@/app/toast-notice";
+import { isAuthenticatedForUnit } from "@/lib/auth";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   canOpenRolePage,
   getRolePage,
@@ -33,6 +33,12 @@ function singleParam(value: string | string[] | undefined): string {
   }
 
   return value ?? "";
+}
+
+function formatWeekLabel(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  return normalized.endsWith("주차") ? normalized : `${normalized}주차`;
 }
 
 async function safeListWeeklyReportOverview(unitSlug: string): Promise<{
@@ -82,206 +88,86 @@ function WeeklyReportAdminPanel({
   loadError: boolean;
   unitSlug: string;
 }) {
+  const toastMessage =
+    created
+      ? "생성 완료"
+      : updated
+        ? "수정 완료"
+        : templateCreated
+          ? "생성 완료"
+          : templateUpdated
+            ? "수정 완료"
+            : templateDeleted
+              ? "삭제 완료"
+              : "";
+
   return (
     <section id="weekly-reports" className="grid gap-5">
-      <section className="card-static p-5 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="mt-2 text-2xl font-extrabold" style={{ color: "var(--ink)" }}>
-              엔젤 주간 보고
-            </h2>
-            <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              보고 주차를 만들고 제출 내용을 확인합니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={cohortAwarePath(unitSlug, "/admin/reports/templates/new")}
-              className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
-              style={{
-                borderColor: "rgba(13, 127, 242, 0.25)",
-                backgroundColor: "var(--accent-weak)",
-                color: "var(--accent-strong)",
-              }}
-            >
-              템플릿 만들기
-            </Link>
-            <Link
-              href={cohortAwarePath(unitSlug, "/admin/reports/cycles/new")}
-              className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"
-              style={{ backgroundColor: "var(--accent)" }}
-            >
-              보고 주차 만들기
-            </Link>
-          </div>
+      {toastMessage ? <ToastNotice message={toastMessage} /> : null}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-extrabold" style={{ color: "var(--ink)" }}>
+            엔젤 주간 보고
+          </h2>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+            보고 주차를 만들고 제출 내용을 확인합니다.
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={cohortAwarePath(unitSlug, "/admin/reports/templates/new")}
+            className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
+            style={{
+              borderColor: "rgba(13, 127, 242, 0.25)",
+              backgroundColor: "var(--accent-weak)",
+              color: "var(--accent-strong)",
+            }}
+          >
+            템플릿 만들기
+          </Link>
+          <Link
+            href={cohortAwarePath(unitSlug, "/admin/reports/cycles/new")}
+            className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            보고 주차 만들기
+          </Link>
+        </div>
+      </div>
 
-        {created || updated || templateCreated || templateUpdated || templateDeleted ? (
-          <div className="mt-5 flex flex-wrap gap-2">
-            {created ? (
-              <span
-                className="rounded-full border px-3 py-1 text-sm font-bold"
-                style={{
-                  borderColor: "var(--success)",
-                  backgroundColor: "var(--success-bg)",
-                  color: "var(--success)",
-                }}
-              >
-                보고 주차 생성됨
-              </span>
-            ) : null}
-            {updated ? (
-              <span
-                className="rounded-full border px-3 py-1 text-sm font-bold"
-                style={{
-                  borderColor: "var(--success)",
-                  backgroundColor: "var(--success-bg)",
-                  color: "var(--success)",
-                }}
-              >
-                보고 주차 수정됨
-              </span>
-            ) : null}
-            {templateCreated ? (
-              <span
-                className="rounded-full border px-3 py-1 text-sm font-bold"
-                style={{
-                  borderColor: "var(--success)",
-                  backgroundColor: "var(--success-bg)",
-                  color: "var(--success)",
-                }}
-              >
-                템플릿 생성됨
-              </span>
-            ) : null}
-            {templateUpdated ? (
-              <span
-                className="rounded-full border px-3 py-1 text-sm font-bold"
-                style={{
-                  borderColor: "var(--success)",
-                  backgroundColor: "var(--success-bg)",
-                  color: "var(--success)",
-                }}
-              >
-                템플릿 수정됨
-              </span>
-            ) : null}
-            {templateDeleted ? (
-              <span
-                className="rounded-full border px-3 py-1 text-sm font-bold"
-                style={{
-                  borderColor: "var(--success)",
-                  backgroundColor: "var(--success-bg)",
-                  color: "var(--success)",
-                }}
-              >
-                템플릿 삭제됨
-              </span>
-            ) : null}
+      <section className="grid gap-5">
+        <div className="card-static overflow-hidden">
+          <div className="border-b px-4 py-3 sm:px-5" style={{ borderColor: "var(--line)" }}>
+            <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
+              보고 주차
+            </h3>
           </div>
-        ) : null}
-
-        {templates.length > 0 ? (
-          <div className="mt-4 grid gap-2">
-            <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
-              저장된 템플릿
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {templates.map((template) => (
-                <article
-                  key={template.id}
-                  className="rounded-2xl border bg-white p-3"
-                  style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
-                        {template.name}
-                      </p>
-                      <p className="mt-1 text-xs font-bold" style={{ color: "var(--accent-strong)" }}>
-                        입력 항목 {template.sections.length}개
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={cohortAwarePath(unitSlug, `/admin/reports/templates/${template.id}/edit`)}
-                        className="rounded-full border px-3 py-1 text-xs font-bold"
-                        style={{
-                          borderColor: "var(--line)",
-                          backgroundColor: "var(--surface)",
-                          color: "var(--ink-soft)",
-                        }}
-                      >
-                        수정
-                      </Link>
-                      <form action={deleteWeeklyReportTemplateAction}>
-                        <input type="hidden" name="unit" value={unitSlug} />
-                        <input type="hidden" name="templateId" value={template.id} />
-                        <button
-                          type="submit"
-                          className="rounded-full border px-3 py-1 text-xs font-bold"
-                          style={{
-                            borderColor: "#fecaca",
-                            backgroundColor: "var(--danger-bg)",
-                            color: "var(--danger)",
-                          }}
-                        >
-                          삭제
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
-                    {template.prompt}
-                  </p>
-                </article>
-              ))}
+          {loadError ? (
+            <div className="p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
+              데이터를 불러오지 못했습니다. 데이터베이스 연결을 확인해주세요.
             </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="grid gap-4">
-        {loadError ? (
-          <div className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
-            데이터를 불러오지 못했습니다. 데이터베이스 연결을 확인해주세요.
-          </div>
-        ) : cycles.length === 0 ? (
-          <div className="card-static p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
-            아직 보고 주차가 없습니다.
-          </div>
-        ) : (
-          cycles.map((cycle) => (
-            <article key={cycle.id} className="card-static p-5 sm:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                    {cycle.title}
-                  </h3>
-                  <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-                    {cycle.weekLabel}
-                    {cycle.dueDate ? ` · 마감 ${cycle.dueDate}` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={cohortAwarePath(unitSlug, `/admin/reports/cycles/${cycle.id}`)}
-                    className="btn-press rounded-full px-3 py-1 text-sm font-bold text-white"
-                    style={{ backgroundColor: "var(--accent)" }}
-                  >
-                    상세
-                  </Link>
-                  <Link
-                    href={cohortAwarePath(unitSlug, `/admin/reports/cycles/${cycle.id}/edit`)}
-                    className="btn-press rounded-full border px-3 py-1 text-sm font-bold"
-                    style={{
-                      borderColor: "var(--line)",
-                      backgroundColor: "var(--surface)",
-                      color: "var(--ink-soft)",
-                    }}
-                  >
-                    수정
-                  </Link>
+          ) : cycles.length === 0 ? (
+            <div className="p-5 text-sm" style={{ color: "var(--ink-muted)" }}>
+              아직 보고 주차가 없습니다.
+            </div>
+          ) : (
+            cycles.map((cycle) => (
+              <Link
+                key={cycle.id}
+                href={cohortAwarePath(unitSlug, `/admin/reports/cycles/${cycle.id}`)}
+                className="block border-b p-4 transition last:border-b-0 hover:bg-white/70 sm:p-5"
+                style={{ borderColor: "var(--line)" }}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
+                      {cycle.title}
+                    </h3>
+                    <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
+                      {formatWeekLabel(cycle.weekLabel)}
+                      {cycle.dueDate ? ` · 마감 ${cycle.dueDate}` : ""}
+                    </p>
+                  </div>
                   <span
                     className="rounded-full border px-3 py-1 text-sm font-bold"
                     style={{
@@ -293,29 +179,68 @@ function WeeklyReportAdminPanel({
                     제출 {cycle.reportCount}건
                   </span>
                 </div>
-              </div>
 
-              <p className="mt-4 line-clamp-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-                {cycle.prompt || "안내 문구 없음"}
-              </p>
-            </article>
-          ))
-        )}
+                <p className="mt-3 line-clamp-1 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
+                  {cycle.prompt || "안내 없음"}
+                </p>
+              </Link>
+            ))
+          )}
+        </div>
+
+        <div className="card-static overflow-hidden">
+          <div className="border-b px-4 py-3 sm:px-5" style={{ borderColor: "var(--line)" }}>
+            <h3 className="text-base font-extrabold" style={{ color: "var(--ink)" }}>
+              보고 템플릿
+            </h3>
+          </div>
+          {templates.length === 0 ? (
+            <p className="p-4 text-sm" style={{ color: "var(--ink-muted)" }}>
+              저장된 템플릿이 없습니다.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2">
+              {templates.map((template) => (
+                <Link
+                  key={template.id}
+                  href={cohortAwarePath(unitSlug, `/admin/reports/templates/${template.id}/edit`)}
+                  className="block border-b p-4 transition hover:bg-white/70 sm:border-r sm:[&:nth-child(2n)]:border-r-0"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
+                      {template.name}
+                    </p>
+                    <span className="rounded-full border px-2 py-0.5 text-xs font-bold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+                      {template.sections.length}개 항목
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
+                    {template.prompt}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </section>
   );
 }
 
 export default async function AdminReportsPage({ searchParams }: AdminReportsPageProps) {
-  const authenticated = await isGlobalAuthenticated();
-  if (!authenticated) {
-    redirect("/?auth=required");
+  const query = await searchParams;
+  const unitSlug = singleParam(query.unit);
+  if (!unitSlug) {
+    redirect("/");
   }
 
-  const [currentRole, query] = await Promise.all([
-    getCurrentRolePageRole(),
-    searchParams,
-  ]);
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
+  if (!authenticated) {
+    redirect(cohortEntryLoginPath(unitSlug, { auth: "required", returnPath: cohortAwarePath(unitSlug, "/admin/reports") }));
+  }
+
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("admin");
   const access = canOpenRolePage("admin", currentRole, getConfiguredRolePages());
 
@@ -328,10 +253,11 @@ export default async function AdminReportsPage({ searchParams }: AdminReportsPag
         role="admin"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(unitSlug, "/admin/reports")}
+        unitSlug={unitSlug}
       />
     );
   } else {
-    const unitSlug = singleParam(query.unit);
     const overview = await safeListWeeklyReportOverview(unitSlug);
     content = (
       <WeeklyReportAdminPanel
@@ -353,7 +279,7 @@ export default async function AdminReportsPage({ searchParams }: AdminReportsPag
       activeRole="admin"
       title="엔젤 주간 보고"
       summary="보고 요청과 제출 내용을 관리합니다."
-      unitSlug={singleParam(query.unit)}
+      unitSlug={unitSlug}
     >
       {content}
     </RoleShell>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAfterpartyShareText,
+  buildMeetingShareText,
   buildOfflineStudyShareText,
 } from "@/lib/share-text";
 
@@ -99,5 +100,56 @@ describe("share text builders", () => {
 
     expect(text).toContain("[뒷풀이] 2026-04-27");
     expect(text).toContain("- 정산1: 유진 / 123");
+  });
+
+  it("builds a single meeting share text with capacity and waitlist", () => {
+    const text = buildMeetingShareText({
+      meeting: {
+        id: "meeting-1",
+        operatingUnitSlug: "default",
+        meetingKind: "study",
+        title: "강남 스터디",
+        meetingDate: "2026-04-27",
+        startTime: "14:00",
+        location: "강남역 https://naver.me/abc",
+        description: "노트북 지참",
+        leaders: ["애니"],
+        hasPassword: false,
+        capacity: 1,
+        studentCount: 1,
+        operationCount: 0,
+        totalCount: 1,
+      },
+      rsvps: [
+        {
+          id: "rsvp-1",
+          meetingId: "meeting-1",
+          name: "민수",
+          role: "student",
+          status: "confirmed",
+          note: null,
+          createdAt: "2026-04-27",
+        },
+        {
+          id: "rsvp-2",
+          meetingId: "meeting-1",
+          name: "지수",
+          role: "student",
+          status: "waitlist",
+          note: null,
+          createdAt: "2026-04-27",
+        },
+      ],
+      teamLabelByMemberName: new Map([
+        ["민수", "1팀"],
+        ["지수", "2팀"],
+      ]),
+    });
+
+    expect(text).toContain("[모임] 강남 스터디");
+    expect(text).toContain("- 참여: 확정 1명 / 정원 1명");
+    expect(text).toContain("- 멤버: 1팀 민수");
+    expect(text).toContain("- 대기: 2팀 지수");
+    expect(text).toContain("- 지도 링크: https://naver.me/abc");
   });
 });

@@ -5,12 +5,13 @@ import {
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
+import { ToastNotice } from "@/app/toast-notice";
 import {
-  addWeeklyReportCommentAction,
-  deleteWeeklyReportCommentAction,
+  deleteAngelWeeklyReportAction,
   submitAngelWeeklyReportAction,
 } from "@/app/weekly-report-actions";
-import { isAuthenticated } from "@/lib/auth";
+import { WeeklyReportEditDialog } from "@/app/weekly-report-edit-dialog";
+import { isAuthenticatedForUnit } from "@/lib/auth";
 import {
   type TeamMemberGroup,
   loadMemberPreset,
@@ -22,22 +23,18 @@ import {
 import {
   getConfiguredRolePages,
   getCurrentRolePageRole,
-  createRoleScopedToken,
 } from "@/lib/role-session";
-import { cohortAwarePath } from "@/lib/cohort-routes";
+import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
   type AngelWeeklyReport,
-  type WeeklyReportComment,
   type WeeklyReportCycle,
   type WeeklyReportTemplate,
   DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS,
   getWeeklyReportCycleById,
   getWeeklyReportTemplateById,
   listAngelWeeklyReports,
-  listComments,
 } from "@/lib/weekly-report-store";
-import { formatCommentDateTime } from "@/lib/date-utils";
-import type { RolePageRole } from "@/lib/role-page";
+import { formatShortDateTime } from "@/lib/date-utils";
 
 type AngelTeamReportPageProps = {
   params: Promise<{ cycleId: string; teamName: string }>;
@@ -49,7 +46,6 @@ type AngelTeamReportPageData = {
   template: WeeklyReportTemplate | null;
   team: TeamMemberGroup | null;
   report: AngelWeeklyReport | null;
-  comments: WeeklyReportComment[];
   error: boolean;
 };
 
@@ -68,14 +64,6 @@ function decodeTeamName(value: string): string {
   } catch {
     return value;
   }
-}
-
-function formatCommentDate(value: string): string {
-  return formatCommentDateTime(value);
-}
-
-function commentInitial(name: string): string {
-  return name.trim().slice(0, 1) || "?";
 }
 
 async function loadAngelTeamReportPageData(
@@ -97,14 +85,12 @@ async function loadAngelTeamReportPageData(
       : [[], null];
 
     const report = reports.find((item) => item.teamName === teamName) ?? null;
-    const comments = report ? await listComments(report.id) : [];
 
     return {
       cycle,
       template,
       team,
       report,
-      comments,
       error: false,
     };
   } catch (error) {
@@ -114,7 +100,6 @@ async function loadAngelTeamReportPageData(
       template: null,
       team: null,
       report: null,
-      comments: [],
       error: true,
     };
   }
@@ -139,27 +124,30 @@ function ReportErrorCard({
   );
 }
 
+function shortDateTime(value: string): string {
+  return formatShortDateTime(value);
+}
+
 function TeamReportForm({
   cycle,
   template,
   team,
   report,
-  comments,
-  currentRole,
   submitted,
+  unsubmitted,
   unitSlug,
 }: {
   cycle: WeeklyReportCycle;
   template: WeeklyReportTemplate | null;
   team: TeamMemberGroup;
   report: AngelWeeklyReport | null;
-  comments: WeeklyReportComment[];
-  currentRole: RolePageRole | null;
   submitted: boolean;
+  unsubmitted: boolean;
   unitSlug: string;
 }) {
   const templateText =
     template?.prompt || cycle.prompt || "팀 분위기, 참여 상황, 도움이 필요한 부분을 자유롭게 적어주세요.";
+  const templateName = template?.name ?? "기본 템플릿";
   const templateSections = template?.sections ?? DEFAULT_WEEKLY_REPORT_TEMPLATE_SECTIONS;
   const reportListPath = cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}`);
   const returnPath = cohortAwarePath(unitSlug, `/angel/reports/${cycle.id}/teams/${team.teamName}`);
@@ -167,13 +155,7 @@ function TeamReportForm({
     report?.angelName && team.angels.includes(report.angelName)
       ? report.angelName
       : team.angels[0] ?? "";
-  const commentAuthorToken = report
-    ? createRoleScopedToken(
-        "angel",
-        "weekly-report-comment-author",
-        `${report.id}:${defaultAngelName}`
-      )
-    : null;
+  const formId = `weekly-report-edit-${cycle.id}-${team.teamName}`;
   const fieldByKey = {
     summary: {
       name: "summary",
@@ -199,6 +181,8 @@ function TeamReportForm({
 
   return (
     <section className="grid gap-4">
+      {submitted ? <ToastNotice message="저장 완료" /> : null}
+      {unsubmitted ? <ToastNotice message="변경 완료" /> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href={reportListPath}
@@ -207,18 +191,6 @@ function TeamReportForm({
         >
           팀 목록
         </Link>
-        {submitted ? (
-          <span
-            className="rounded-full border px-3 py-1 text-sm font-bold"
-            style={{
-              borderColor: "var(--success)",
-              backgroundColor: "var(--success-bg)",
-              color: "var(--success)",
-            }}
-          >
-            저장됨
-          </span>
-        ) : null}
       </div>
 
       <article className="card-static p-5 sm:p-6">
@@ -228,152 +200,154 @@ function TeamReportForm({
               {team.teamName} 보고
             </h2>
             <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-muted)" }}>
-              엔젤 {team.angels.length > 0 ? team.angels.join(", ") : "미지정"} · 멤버 {team.members.length}명
+              엔젤 {team.angels.length > 0 ? team.angels.join(", ") : "미지정"}
+              {report ? ` · ${report.angelName}${shortDateTime(report.updatedAt) ? ` · ${shortDateTime(report.updatedAt)}` : ""}` : ""}
             </p>
           </div>
-          <details>
-            <summary
-              className="btn-press cursor-pointer list-none rounded-full border px-3 py-1 text-sm font-bold"
-              style={{
-                borderColor: report ? "var(--success)" : "rgba(13, 127, 242, 0.25)",
-                backgroundColor: report ? "var(--success-bg)" : "var(--accent-weak)",
-                color: report ? "var(--success)" : "var(--accent-strong)",
-              }}
+          <div className="flex flex-wrap items-center gap-2">
+            {report ? (
+              <form action={deleteAngelWeeklyReportAction}>
+                <input type="hidden" name="unit" value={unitSlug} />
+                <input type="hidden" name="cycleId" value={cycle.id} />
+                <input type="hidden" name="reportId" value={report.id} />
+                <input type="hidden" name="returnPath" value={returnPath} />
+                <button
+                  type="submit"
+                  className="btn-press rounded-full border px-3 py-1 text-sm font-bold"
+                  style={{
+                    borderColor: "var(--line)",
+                    backgroundColor: "var(--surface)",
+                    color: "var(--ink-soft)",
+                  }}
+                >
+                  미제출
+                </button>
+              </form>
+            ) : null}
+            <WeeklyReportEditDialog
+              triggerLabel={report ? "수정" : "작성"}
+              hasReport={Boolean(report)}
+              title={`${team.teamName} 보고 ${report ? "수정" : "작성"}`}
+              description="저장하면 상세 화면의 보고 내용이 갱신됩니다."
+              badge={team.teamName}
+              formId={formId}
             >
-              {report ? "수정" : "작성"}
-            </summary>
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <form id={formId} action={submitAngelWeeklyReportAction} className="grid gap-4">
+              <input type="hidden" name="unit" value={unitSlug} />
+              <input type="hidden" name="cycleId" value={cycle.id} />
+              <input type="hidden" name="teamName" value={team.teamName} />
+              <input type="hidden" name="returnPath" value={returnPath} />
+
               <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="weekly-report-edit-title"
-                className="modal-surface max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto p-5"
+                className="grid gap-3 rounded-xl border px-4 py-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start"
+                style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)" }}
               >
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 id="weekly-report-edit-title" className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-                      {team.teamName} 보고 {report ? "수정" : "작성"}
-                    </h3>
-                    <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-                      저장하면 상세 화면의 보고 내용이 갱신됩니다.
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
+                      보고 템플릿
                     </p>
+                    <span className="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface)", color: "var(--ink-soft)" }}>
+                      {templateName}
+                    </span>
                   </div>
-                  <span className="rounded-md border px-2 py-1 text-xs font-semibold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
-                    {team.teamName}
-                  </span>
+                  <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-soft)" }}>
+                    {templateText}
+                  </p>
                 </div>
-
-                <form action={submitAngelWeeklyReportAction} className="grid gap-4">
-                  <input type="hidden" name="unit" value={unitSlug} />
-                  <input type="hidden" name="cycleId" value={cycle.id} />
-                  <input type="hidden" name="teamName" value={team.teamName} />
-                  <input type="hidden" name="returnPath" value={returnPath} />
-
-                  <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
-                    작성자
-                    {team.angels.length > 0 ? (
-                      <select
-                        name="angelName"
-                        required
-                        className="h-12 rounded-xl border px-3 text-sm"
-                        style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-                        defaultValue={defaultAngelName}
-                      >
-                        {team.angels.map((angel) => (
-                          <option key={`${team.teamName}-${angel}`} value={angel}>
-                            {angel}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        name="angelName"
-                        required
-                        placeholder="작성자 이름"
-                        defaultValue={report?.angelName ?? ""}
-                        className="h-12 rounded-xl border px-3 text-sm"
-                        style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-                      />
-                    )}
-                  </label>
-
-                  <section className="grid gap-3 md:grid-cols-2">
-                    {templateSections.map((section, index) => {
-                      const field = fieldByKey[section.key];
-                      return (
-                        <label
-                          key={`edit-${section.key}-${index}`}
-                          className={`grid gap-2 text-sm font-semibold ${
-                            index === 0 || templateSections.length % 2 === 1 && index === templateSections.length - 1
-                              ? "md:col-span-2"
-                              : ""
-                          }`}
-                          style={{ color: "var(--ink-soft)" }}
-                        >
-                          {section.title}
-                          <textarea
-                            name={field.name}
-                            required={section.required}
-                            rows={field.rows}
-                            placeholder={section.prompt}
-                            defaultValue={field.value}
-                            className="rounded-xl border px-3 py-3 text-sm"
-                            style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-                          />
-                        </label>
-                      );
-                    })}
-                  </section>
-
-                  <div className="flex justify-end gap-2">
-                    <Link
-                      href={returnPath}
-                      className="btn-press inline-flex h-12 items-center rounded-full border px-4 text-sm font-bold"
-                      style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface)" }}
+                <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--ink-soft)" }}>
+                  작성자
+                  {team.angels.length > 0 ? (
+                    <select
+                      name="angelName"
+                      required
+                      className="h-11 rounded-xl border bg-white px-3 text-sm"
+                      style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+                      defaultValue={defaultAngelName}
                     >
-                      닫기
-                    </Link>
-                    <button
-                      type="submit"
-                      className="btn-press h-12 rounded-full px-5 text-sm font-bold text-white"
-                      style={{ backgroundColor: "var(--accent)" }}
-                    >
-                      저장
-                    </button>
-                  </div>
-                </form>
+                      {team.angels.map((angel) => (
+                        <option key={`${team.teamName}-${angel}`} value={angel}>
+                          {angel}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      name="angelName"
+                      required
+                      placeholder="작성자 이름"
+                      defaultValue={report?.angelName ?? ""}
+                      className="h-11 rounded-xl border bg-white px-3 text-sm"
+                      style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+                    />
+                  )}
+                </label>
               </div>
-            </div>
-          </details>
+
+              <section className="overflow-hidden rounded-xl border bg-white" style={{ borderColor: "var(--line)" }}>
+                {templateSections.map((section, index) => {
+                  const field = fieldByKey[section.key];
+                  return (
+                    <label
+                      key={`edit-${section.key}-${index}`}
+                      className="grid border-b last:border-b-0 lg:grid-cols-[200px_minmax(0,1fr)]"
+                      style={{ borderColor: "var(--line)" }}
+                    >
+                      <div className="px-4 py-4">
+                        <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
+                          {section.title}
+                        </p>
+                        {section.prompt ? (
+                          <p className="mt-1 text-xs font-medium leading-5" style={{ color: "var(--ink-muted)" }}>
+                            {section.prompt}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="border-t p-3 lg:border-l lg:border-t-0" style={{ borderColor: "var(--line)" }}>
+                        <textarea
+                          name={field.name}
+                          required={section.required}
+                          rows={field.rows}
+                          placeholder="내용을 입력하세요."
+                          defaultValue={field.value}
+                          className="w-full resize-y rounded-lg border px-3 py-3 text-sm font-medium leading-6"
+                          style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+                        />
+                      </div>
+                    </label>
+                  );
+                })}
+              </section>
+            </form>
+            </WeeklyReportEditDialog>
+          </div>
         </div>
 
-        <div
-          className="mt-4 rounded-2xl border px-4 py-3 text-sm leading-6"
-          style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}
-        >
-          <span className="font-bold" style={{ color: "var(--ink)" }}>
-            이번 주 작성 기준
+        <div className="mt-5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
+          <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "var(--ink-muted)" }}>
+            보고 템플릿
+          </p>
+          <span className="mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-bold" style={{ borderColor: "var(--line)", backgroundColor: "var(--surface-alt)", color: "var(--ink-soft)" }}>
+            {templateName}
           </span>
-          <span className="ml-2">{templateText}</span>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--ink-soft)" }}>
+            {templateText}
+          </p>
         </div>
 
-        <section className="mt-4 grid gap-3 md:grid-cols-2">
+        <section className="mt-5 border-t" style={{ borderColor: "var(--line)" }}>
           {templateSections.map((section, index) => {
             const field = fieldByKey[section.key];
             return (
               <div
                 key={`readonly-${section.key}-${index}`}
-                className={`rounded-xl border bg-white p-4 ${
-                  index === 0 || templateSections.length % 2 === 1 && index === templateSections.length - 1
-                    ? "md:col-span-2"
-                    : ""
-                }`}
+                className="border-b py-4 last:border-b-0"
                 style={{ borderColor: "var(--line)" }}
               >
-                <p className="text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+                <h3 className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
                   {section.title}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6" style={{ color: field.value ? "var(--ink)" : "var(--ink-muted)" }}>
+                </h3>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-7" style={{ color: field.value ? "var(--ink-soft)" : "var(--ink-muted)" }}>
                   {field.value || "아직 작성된 내용이 없습니다."}
                 </p>
               </div>
@@ -382,158 +356,6 @@ function TeamReportForm({
         </section>
       </article>
 
-      <section className="card-static grid gap-4 p-5 sm:p-6">
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b pb-3" style={{ borderColor: "var(--line)" }}>
-          <div>
-            <h2 className="text-lg font-extrabold" style={{ color: "var(--ink)" }}>
-              댓글
-            </h2>
-            <p className="mt-1 text-sm" style={{ color: "var(--ink-muted)" }}>
-              보고 내용에 대한 확인 사항을 남깁니다.
-            </p>
-          </div>
-          <span className="text-xs font-semibold" style={{ color: "var(--ink-muted)" }}>
-            {comments.length}개
-          </span>
-        </div>
-
-        {!report ? (
-          <p className="rounded-xl border border-dashed px-4 py-5 text-center text-sm" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
-            보고 저장 후 댓글을 남길 수 있습니다.
-          </p>
-        ) : (
-          <>
-            <div className="rounded-2xl border p-3" style={{ borderColor: "var(--line)", backgroundColor: "#f8fbff" }}>
-              {comments.length === 0 ? (
-                <div className="rounded-xl border border-dashed bg-white px-4 py-8 text-center" style={{ borderColor: "var(--line)" }}>
-                  <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
-                    아직 댓글이 없습니다.
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
-                    첫 확인 사항을 남겨주세요.
-                  </p>
-                </div>
-              ) : (
-                <ol className="grid gap-3">
-                  {comments.map((comment) => {
-                    const canDelete =
-                      currentRole === "admin" ||
-                      (currentRole === "angel" &&
-                        comment.authorRole === "angel" &&
-                        comment.authorLabel === defaultAngelName);
-                    const commentDate = formatCommentDate(comment.createdAt);
-                    return (
-                      <li key={comment.id} className="grid grid-cols-[2.25rem_1fr] gap-3">
-                        <div
-                          className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-extrabold"
-                          style={{ backgroundColor: "var(--accent-weak)", color: "var(--accent-strong)" }}
-                          aria-hidden="true"
-                        >
-                          {commentInitial(comment.authorLabel)}
-                        </div>
-                        <article className="rounded-2xl border bg-white px-4 py-3 shadow-sm" style={{ borderColor: "var(--line)" }}>
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
-                                  {comment.authorLabel}
-                                </p>
-                                {commentDate ? (
-                                  <time className="text-xs" style={{ color: "var(--ink-muted)" }} dateTime={comment.createdAt}>
-                                    {commentDate}
-                                  </time>
-                                ) : null}
-                              </div>
-                            </div>
-                            {canDelete ? (
-                              <form action={deleteWeeklyReportCommentAction}>
-                                <input type="hidden" name="commentId" value={comment.id} />
-                                <input type="hidden" name="reportId" value={report.id} />
-                                <input type="hidden" name="authorLabel" value={defaultAngelName} />
-                                <input
-                                  type="hidden"
-                                  name="ownershipToken"
-                                  value={
-                                    createRoleScopedToken(
-                                      "angel",
-                                      "weekly-report-comment-delete",
-                                      `${report.id}:${comment.id}:${defaultAngelName}`
-                                    ) ?? ""
-                                  }
-                                />
-                                <input type="hidden" name="returnPath" value={returnPath} />
-                                <button
-                                  type="submit"
-                                  className="btn-press rounded-md px-2 py-1 text-xs font-semibold transition hover:bg-red-50"
-                                  style={{ color: "var(--danger)" }}
-                                >
-                                  삭제
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6" style={{ color: "var(--ink-soft)" }}>
-                            {comment.body}
-                          </p>
-                        </article>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </div>
-
-            <form action={addWeeklyReportCommentAction} className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: "var(--line)" }}>
-              <input type="hidden" name="reportId" value={report.id} />
-              <input type="hidden" name="authorToken" value={commentAuthorToken ?? ""} />
-              <input type="hidden" name="returnPath" value={returnPath} />
-              <div>
-                <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
-                  댓글 작성
-                </p>
-                <p className="mt-1 text-xs" style={{ color: "var(--ink-muted)" }}>
-                  이름과 확인 내용을 남겨주세요.
-                </p>
-              </div>
-              <div className="grid gap-3">
-                <label className="grid gap-1 text-xs font-semibold" style={{ color: "var(--ink-soft)" }} htmlFor="weekly-report-comment-author">
-                  이름
-                  <input
-                    id="weekly-report-comment-author"
-                    name="authorLabel"
-                    required
-                    maxLength={80}
-                    defaultValue={currentRole === "admin" ? "관리자" : defaultAngelName}
-                    className="h-11 max-w-sm rounded-xl border px-3 text-sm"
-                    style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-                    placeholder="이름"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-semibold" style={{ color: "var(--ink-soft)" }} htmlFor="weekly-report-comment-body">
-                  내용
-                  <textarea
-                    id="weekly-report-comment-body"
-                    name="body"
-                    required
-                    rows={4}
-                    maxLength={4000}
-                    placeholder="댓글 내용을 입력하세요."
-                    className="min-h-28 rounded-xl border px-3 py-3 text-sm"
-                    style={{ borderColor: "var(--line)", color: "var(--ink)" }}
-                  />
-                </label>
-              </div>
-              <button
-                type="submit"
-                className="btn-press justify-self-end rounded-lg px-4 py-2 text-sm font-bold text-white"
-                style={{ backgroundColor: "var(--accent)" }}
-              >
-                댓글 등록
-              </button>
-            </form>
-          </>
-        )}
-      </section>
     </section>
   );
 }
@@ -545,15 +367,21 @@ export default async function AngelTeamReportPage({
   const [routeParams, query] = await Promise.all([params, searchParams]);
   const unitSlug = singleParam(query.unit);
   if (!unitSlug) {
-    redirect("/admin");
+    redirect("/");
   }
 
-  const authenticated = await isAuthenticated();
+  const authenticated = await isAuthenticatedForUnit(unitSlug);
   if (!authenticated) {
-    redirect("/?auth=required");
+    redirect(cohortEntryLoginPath(unitSlug, {
+      auth: "required",
+      returnPath: cohortAwarePath(
+        unitSlug,
+        `/angel/reports/${encodeURIComponent(routeParams.cycleId)}/teams/${encodeURIComponent(routeParams.teamName)}`
+      ),
+    }));
   }
 
-  const currentRole = await getCurrentRolePageRole();
+  const currentRole = await getCurrentRolePageRole(unitSlug);
   const page = getRolePage("angel");
   const access = canOpenRolePage("angel", currentRole, getConfiguredRolePages());
   const teamName = decodeTeamName(routeParams.teamName);
@@ -567,6 +395,11 @@ export default async function AngelTeamReportPage({
         role="angel"
         label={page.label}
         invalid={singleParam(query.access) === "invalid"}
+        returnPath={cohortAwarePath(
+          unitSlug,
+          `/angel/reports/${encodeURIComponent(routeParams.cycleId)}/teams/${encodeURIComponent(routeParams.teamName)}`
+        )}
+        unitSlug={unitSlug}
       />
     );
   } else {
@@ -601,9 +434,8 @@ export default async function AngelTeamReportPage({
           template={data.template}
           team={data.team}
           report={data.report}
-          comments={data.comments}
-          currentRole={currentRole}
           submitted={singleParam(query.report) === "submitted"}
+          unsubmitted={singleParam(query.report) === "unsubmitted"}
           unitSlug={unitSlug}
         />
       );
