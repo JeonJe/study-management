@@ -16,7 +16,7 @@
 | 기수별 입장 코드 | 전체관리자 화면에서 설정 | DB 저장 | 사용자가 기수에 들어갈 때 입력 |
 | 기수별 엔젤 코드 | 전체관리자 화면에서 설정 | DB 저장 | 해당 기수 엔젤 화면 접근 |
 | 기수별 관리자 코드 | 전체관리자 화면에서 설정 | DB 저장 | 해당 기수 관리자 화면 접근 |
-| 코드 암호화 비밀값 | 랜덤 문자열 | `OPERATING_UNIT_CODE_SECRET` | 새로 저장되는 기수 코드 현재값 암호화 |
+| 코드 보호용 비밀값 | 랜덤 문자열 | `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 보호 저장에 사용. 운영 중 임의 변경 금지 |
 
 ## 2. 권한과 코드 위치
 
@@ -59,7 +59,7 @@ flowchart TB
 | `APP_PASSWORD` | 새 전체관리자 코드로 바꿀지 결정 |
 | `ADMIN_PAGE_PASSWORD` | 전역 관리자 코드 유지/변경 결정 |
 | `ANGEL_PAGE_PASSWORD` | 전역 엔젤 코드 유지/변경 결정 |
-| `OPERATING_UNIT_CODE_SECRET` | 새 기수 코드 암호화 기준. 가능하면 운영에서 고정 |
+| `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 보호용 비밀값. 가능하면 운영에서 고정 |
 | `OPERATING_UNITS_ENABLED` | 기수 관리 사용 시 `true` 또는 `1` |
 
 ## 4. DB URL 교체 전 확인
@@ -102,7 +102,7 @@ flowchart LR
 - 운영 DB에서 테스트용 쓰기 E2E를 바로 실행하지 않습니다.
 - 새 DB 검증 전 Production `DATABASE_URL`을 바꾸지 않습니다.
 - 실제 관리자 코드나 DB URL을 문서, PR, 스크린샷에 적지 않습니다.
-- `OPERATING_UNIT_CODE_SECRET`을 바꾼 뒤 기존 기수 코드를 재저장하지 않으면 현재값 복호화가 안 될 수 있습니다.
+- `OPERATING_UNIT_CODE_SECRET`을 바꾸면 기존 기수 코드 현재값 표시나 코드 관리에 문제가 생길 수 있습니다.
 - 장애 발생 시 원인을 찾기 전에 기존 DB URL 백업값을 잃어버리면 롤백이 어려워집니다.
 
 ## 7. AI 에이전트용 작업 지시 예시
@@ -117,7 +117,7 @@ flowchart LR
 전체관리자 코드(APP_PASSWORD): <APP_PASSWORD>
 전역 관리자 코드(ADMIN_PAGE_PASSWORD): <ADMIN_PAGE_PASSWORD>
 전역 엔젤 코드(ANGEL_PAGE_PASSWORD): <ANGEL_PAGE_PASSWORD>
-운영 단위 코드 암호화 값(OPERATING_UNIT_CODE_SECRET): <SECRET>
+기수 코드 보호용 비밀값(OPERATING_UNIT_CODE_SECRET): <SECRET>
 
 해야 할 일:
 1. Vercel Preview 환경에 새 DATABASE_URL과 NEXT_PUBLIC_BASE_URL을 먼저 설정

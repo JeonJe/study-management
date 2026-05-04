@@ -9,7 +9,7 @@ node scripts/capture-mobile-screenshots.mjs --base-url http://localhost:3102
 - viewport: `390x844`
 - screenshot output: `test-results/mobile-screenshots/*.png`
 - summary output: `test-results/mobile-screenshots/summary.json`
-- 인증: `APP_PASSWORD`, `ADMIN_PAGE_PASSWORD`, `ANGEL_PAGE_PASSWORD` 기반 cookie를 테스트 context에 주입
+- 인증: 테스트용 접근 세션을 브라우저 context에 주입
 
 ## 체크리스트
 

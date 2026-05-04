@@ -24,7 +24,7 @@
 | `src/lib/member-store.test.ts` | 멤버 프리셋 저장 데이터 |
 | `src/lib/history-store.test.ts` | 참여 히스토리 집계와 캐시 key |
 | `src/lib/operating-unit-store.test.ts` | 운영 단위 slug, access code, 활성화 정책 |
-| `src/lib/role-session.test.ts` | 기수별 엔젤/관리자 역할 쿠키와 전역 역할 쿠키 |
+| `src/lib/role-session.test.ts` | 기수별 엔젤/관리자 역할 세션과 전역 역할 세션 |
 | `src/app/members/member-actions.test.ts` | 멤버 저장 Server Action payload 검증 |
 | `src/app/weekly-report-actions.test.ts` | 주간 보고 작성/미제출/권한 action |
 | `src/lib/cache-invalidation.test.ts` | mutation 후 cache tag 무효화 |
