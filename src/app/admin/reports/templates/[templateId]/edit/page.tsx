@@ -82,6 +82,8 @@ function TemplateEditPanel({
     );
   }
 
+  const updateFormId = "weekly-report-template-update-form";
+
   return (
     <section className="mx-auto grid max-w-3xl gap-5">
       <div className="card-static p-5 sm:p-7">
@@ -98,6 +100,7 @@ function TemplateEditPanel({
         </div>
 
         <WeeklyReportTemplateForm
+          formId={updateFormId}
           action={updateWeeklyReportTemplateAction}
           templateId={template.id}
           initialName={template.name}
@@ -107,10 +110,14 @@ function TemplateEditPanel({
             prompt: section.prompt,
           }))}
           submitLabel="수정"
+          showSubmit={false}
           unitSlug={unitSlug}
         />
-        <div className="mt-5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
-          <form action={deleteWeeklyReportTemplateAction} className="flex justify-end">
+        <div
+          className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t pt-5"
+          style={{ borderColor: "var(--line)" }}
+        >
+          <form action={deleteWeeklyReportTemplateAction}>
             <input type="hidden" name="unit" value={unitSlug} />
             <input type="hidden" name="templateId" value={template.id} />
             <DeleteConfirmButton
@@ -125,6 +132,14 @@ function TemplateEditPanel({
               삭제
             </DeleteConfirmButton>
           </form>
+          <button
+            type="submit"
+            form={updateFormId}
+            className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            수정
+          </button>
         </div>
       </div>
     </section>

@@ -11,6 +11,7 @@ type TemplateSectionDraft = {
 
 type WeeklyReportTemplateFormProps = {
   action: (formData: FormData) => void | Promise<void>;
+  formId?: string;
   templateId?: string;
   initialName?: string;
   initialPrompt?: string;
@@ -19,6 +20,7 @@ type WeeklyReportTemplateFormProps = {
     prompt: string;
   }>;
   submitLabel?: string;
+  showSubmit?: boolean;
   unitSlug: string;
 };
 
@@ -47,11 +49,13 @@ const SECTION_PRESETS: Array<Omit<TemplateSectionDraft, "id">> = [
 
 export function WeeklyReportTemplateForm({
   action,
+  formId,
   templateId,
   initialName = "",
   initialPrompt = "",
   initialSections,
   submitLabel = "저장",
+  showSubmit = true,
   unitSlug,
 }: WeeklyReportTemplateFormProps) {
   const [sections, setSections] = useState<TemplateSectionDraft[]>([
@@ -91,7 +95,7 @@ export function WeeklyReportTemplateForm({
   }
 
   return (
-    <form action={action} className="mt-6 grid gap-5">
+    <form id={formId} action={action} className="mt-6 grid gap-5">
       <input type="hidden" name="unit" value={unitSlug} />
       {templateId ? <input type="hidden" name="templateId" value={templateId} /> : null}
 
@@ -199,14 +203,16 @@ export function WeeklyReportTemplateForm({
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <PendingSubmitButton
-          idleLabel={submitLabel}
-          pendingLabel="저장 중"
-          className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
-          style={{ backgroundColor: "var(--accent)" }}
-        />
-      </div>
+      {showSubmit ? (
+        <div className="flex justify-end">
+          <PendingSubmitButton
+            idleLabel={submitLabel}
+            pendingLabel="저장 중"
+            className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
+            style={{ backgroundColor: "var(--accent)" }}
+          />
+        </div>
+      ) : null}
     </form>
   );
 }

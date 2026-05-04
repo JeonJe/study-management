@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DeleteConfirmButton } from "@/app/delete-confirm-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
 } from "@/app/role-page-view";
 import { RoleShell } from "@/app/role-shell";
 import { ToastNotice } from "@/app/toast-notice";
-import { deleteWeeklyReportTemplateAction } from "@/app/weekly-report-actions";
 import { isAuthenticatedForUnit } from "@/lib/auth";
 import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import {
@@ -202,58 +200,26 @@ function WeeklyReportAdminPanel({
             </p>
           ) : (
             <div className="grid sm:grid-cols-2">
-              {templates.map((template) => {
-                const editHref = cohortAwarePath(unitSlug, `/admin/reports/templates/${template.id}/edit`);
-                return (
-                  <article
-                    key={template.id}
-                    className="grid gap-4 border-b p-4 sm:border-r sm:[&:nth-child(2n)]:border-r-0"
-                    style={{ borderColor: "var(--line)" }}
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
-                          {template.name}
-                        </p>
-                        <span className="rounded-full border px-2 py-0.5 text-xs font-bold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
-                          {template.sections.length}개 항목
-                        </span>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
-                        {template.prompt}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Link
-                        href={editHref}
-                        className="btn-press rounded-full border px-3 py-1.5 text-xs font-bold"
-                        style={{
-                          borderColor: "rgba(13, 127, 242, 0.25)",
-                          backgroundColor: "var(--accent-weak)",
-                          color: "var(--accent-strong)",
-                        }}
-                      >
-                        수정
-                      </Link>
-                      <form action={deleteWeeklyReportTemplateAction}>
-                        <input type="hidden" name="unit" value={unitSlug} />
-                        <input type="hidden" name="templateId" value={template.id} />
-                        <DeleteConfirmButton
-                          confirmMessage={`"${template.name}" 템플릿을 정말 삭제하시겠습니까?`}
-                          className="rounded-full border px-3 py-1.5 text-xs font-bold"
-                          style={{
-                            borderColor: "#fecaca",
-                            backgroundColor: "var(--danger-bg)",
-                            color: "var(--danger)",
-                          }}
-                        >
-                          삭제
-                        </DeleteConfirmButton>
-                      </form>
-                    </div>
-                  </article>
-                );
-              })}
+              {templates.map((template) => (
+                <Link
+                  key={template.id}
+                  href={cohortAwarePath(unitSlug, `/admin/reports/templates/${template.id}/edit`)}
+                  className="block border-b p-4 transition hover:bg-white/70 sm:border-r sm:[&:nth-child(2n)]:border-r-0"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-extrabold" style={{ color: "var(--ink)" }}>
+                      {template.name}
+                    </p>
+                    <span className="rounded-full border px-2 py-0.5 text-xs font-bold" style={{ borderColor: "var(--line)", color: "var(--ink-muted)" }}>
+                      {template.sections.length}개 항목
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5" style={{ color: "var(--ink-muted)" }}>
+                    {template.prompt}
+                  </p>
+                </Link>
+              ))}
             </div>
           )}
         </div>
