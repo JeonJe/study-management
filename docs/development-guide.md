@@ -1,8 +1,8 @@
-# Development Guide
+# 개발 시작 가이드
 
-외부 개발자가 변경을 시작할 때 따르는 작업 절차다.
+외부 개발자가 처음 변경할 때 필요한 최소 절차입니다.
 
-## 로컬 준비
+## 1. 로컬 실행
 
 ```bash
 npm install
@@ -16,72 +16,65 @@ npm run dev
 | 변수 | 용도 |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL 연결 |
-| `APP_PASSWORD` | 일반 입장 코드 및 전역 인증 |
-| `ADMIN_PAGE_PASSWORD` | 관리자 역할 화면 |
-| `ANGEL_PAGE_PASSWORD` | 엔젤 역할 화면 |
-| `OPERATING_UNIT_CODE_SECRET` | 기수별 입장/역할 코드 현재값 암호화. 없으면 `APP_PASSWORD` 사용 |
-| `NEXT_PUBLIC_BASE_URL` | 공유/링크 생성 기준 URL |
+| `APP_PASSWORD` | 전체관리자/기본 입장 코드 |
+| `ADMIN_PAGE_PASSWORD` | 전역 관리자 코드 |
+| `ANGEL_PAGE_PASSWORD` | 전역 엔젤 코드 |
+| `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 암호화. 없으면 `APP_PASSWORD` 사용 |
+| `NEXT_PUBLIC_BASE_URL` | 공유 링크 기준 URL |
 
-## 변경 전 체크
+## 2. 먼저 돌릴 명령
 
 ```bash
-git status --short
 npm run typecheck
 npm run lint
 npm test
+npm run build
 ```
 
-DB 스키마나 운영 데이터에 영향을 주는 변경 전에는 백업을 먼저 만든다.
+DB나 운영 데이터가 바뀌는 작업 전에는 백업합니다.
 
 ```bash
 npm run db:backup
 ```
 
-## 변경 종류별 진입점
+## 3. 어디를 보면 되나요?
 
-| 변경 | 먼저 볼 파일 | 같이 확인할 파일 |
-| --- | --- | --- |
-| 모임 필드 추가 | `src/lib/meetup-store.ts` | `src/app/actions.ts`, `src/app/meetup-dashboard.tsx`, `docs/db/01_init_schema.sql` |
-| 뒷풀이 정산 변경 | `src/lib/afterparty-store.ts` | `src/app/afterparty/[afterpartyId]/page.tsx`, E2E afterparty spec |
-| 멤버 저장 변경 | `src/app/members/member-actions.ts` | `src/lib/member-store.ts`, `src/app/members/member-admin-form.tsx` |
-| 운영 단위 변경 | `src/lib/operating-unit-store.ts` | `src/lib/cohort-routes.ts`, `src/lib/cached-queries.ts` |
-| 역할 인증 변경 | `src/lib/role-session.ts` | `src/app/role-actions.ts`, `src/lib/role-session.test.ts` |
-| 주간보고 변경 | `src/lib/weekly-report-store.ts` | `src/app/weekly-report-actions.ts`, `src/app/angel/reports/**`, `src/app/admin/reports/**` |
-| 히스토리 성능 | `src/lib/history-store.ts` | `src/app/admin/history/**`, `e2e/performance.spec.ts` |
-
-## 검증 게이트
-
-작은 유틸/문서 변경:
-
-```bash
-npm run typecheck
-npm run lint
-npm test
+```mermaid
+flowchart LR
+  Page["src/app<br/>화면/라우트"] --> Action["Server Action"]
+  Action --> Store["src/lib/*-store.ts<br/>DB 조회/저장"]
+  Store --> DB["PostgreSQL"]
+  Action --> Cache["cache invalidation"]
 ```
 
-서버 컴포넌트, route, Server Action 변경:
+| 바꾸려는 것 | 먼저 볼 파일 |
+| --- | --- |
+| 모임/참여자/대기 | `src/lib/meetup-store.ts`, `src/app/meetings/[meetingId]/page.tsx` |
+| 뒷풀이/정산 | `src/lib/afterparty-store.ts`, `src/app/afterparty/[afterpartyId]/page.tsx` |
+| 멤버/팀 | `src/lib/member-store.ts`, `src/app/members/member-admin-form.tsx` |
+| 엔젤 보고 | `src/lib/weekly-report-store.ts`, `src/app/angel/reports/**` |
+| 관리자 보고 | `src/app/admin/reports/**` |
+| 히스토리 | `src/lib/history-store.ts`, `src/app/admin/history/**` |
+| 기수/코드 | `src/lib/operating-unit-store.ts`, `src/app/admin/operating-units/**` |
+| 권한 | `src/lib/auth.ts`, `src/lib/role-session.ts` |
 
-```bash
-npm run build
-npm run typecheck
-npm run lint
-npm test
-```
+## 4. 변경 전 체크리스트
 
-사용자 흐름 변경:
+- 현재 기수 slug가 명시적으로 전달되는가?
+- 저장 후 캐시가 갱신되는가?
+- 삭제는 확인 모달을 거치는가?
+- 오래 걸리는 저장/조회에 스피너나 진행바가 보이는가?
+- DB 스키마 변경이면 `docs/db/01_init_schema.sql`도 갱신했는가?
+- 사용자 문구가 `docs/ui-ux-principles.md`와 맞는가?
 
-```bash
-PLAYWRIGHT_BASE_URL=http://localhost:3000 npm run e2e
-PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test --project=regression
-```
+## 5. 검증 기준
 
-`PLAYWRIGHT_BASE_URL`을 명시하지 않으면 Playwright는 localhost를 기본값으로 사용한다. 운영 유사 URL에서 쓰기 E2E를 실행하지 않는다.
+| 변경 종류 | 필요한 검증 |
+| --- | --- |
+| 문서만 변경 | `git diff --check` |
+| 유틸/타입 변경 | `npm run typecheck`, `npm run lint`, `npm test` |
+| 화면/Server Action 변경 | `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` |
+| 사용자 흐름 변경 | 위 명령 + `npm run e2e` 또는 브라우저 수동 확인 |
+| DB/이관 변경 | 백업 + `docs/migration/*` 절차 확인 |
 
-## 커밋 전 체크리스트
-
-- 변경 범위가 한 가지 목적에 묶여 있는가
-- 운영 단위가 명시적으로 전달되는가
-- 캐시 key와 invalidation tag가 변경 데이터 범위를 반영하는가
-- DB 변경이면 `docs/db/01_init_schema.sql`과 store 보정 로직이 함께 갱신됐는가
-- 테스트가 새 동작 또는 회귀 위험을 잠그는가
-- UI 변경이면 `docs/ui-ux-principles.md`의 중복 표시, 토스트, 버튼 문구 원칙을 지켰는가
+운영 유사 환경에서 쓰기 E2E를 실행하지 않습니다. 테스트가 필요하면 테스트 기수와 가데이터를 사용합니다.

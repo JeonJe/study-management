@@ -1,55 +1,30 @@
-# README Screenshot Guide
+# 스크린샷 관리 가이드
 
-README 스크린샷은 반드시 **가데이터**로만 관리한다.
-실명, 실제 계좌, 실제 내부 정보가 보이는 이미지는 커밋 금지.
+인계용 스크린샷은 실제 운영 데이터가 아니라 가데이터로만 관리합니다.
 
-## 1. 원칙
-
-- 실명/실제 연락처/실제 계좌번호/내부 식별자 노출 금지
-- README 스크린샷은 항상 `docs/screenshots/*.png` 5개를 세트로 갱신
-- 수동 캡처 대신 프로젝트 스크립트(`scripts/capture-readme-screenshots.mjs`) 사용
-
-## 2. 준비
-
-- 로컬 서버 실행
+## 캡처 명령
 
 ```bash
-cd /Users/green/IdeaProjects/saturday-meetup
-npm run dev
+BASE_URL=http://localhost:3000 npm run docs:handoff-screenshots
 ```
 
-- `.env.local`에 아래 값이 있어야 함
-  - `APP_PASSWORD`
-  - `DATABASE_URL`
+결과는 `docs/screenshots/handoff/`에 저장됩니다.
 
-## 3. 캡처 실행
+## 포함 화면
 
-```bash
-cd /Users/green/IdeaProjects/saturday-meetup
-npm run docs:screenshots
-```
+| 번호 | 화면 |
+| --- | --- |
+| 01-05 | 전체관리자, 기수 목록, 기수 생성, 기수 상세, 삭제 확인 |
+| 06-08 | 기수 입장, 스터디 목록, 모임 상세 |
+| 09-10 | 뒷풀이 목록, 뒷풀이 상세 |
+| 11-12 | 엔젤 보고 목록, 보고 작성 |
+| 13-17 | 관리자 홈, 멤버, 보고 목록, 보고 상세, 히스토리 |
+| 18 | 조회 진행바 |
+| 19-20 | 모바일 입장, 모바일 모임 상세 |
 
-동작:
+## 커밋 전 확인
 
-- 로그인 후 5개 화면 자동 캡처
-- DB의 이름 후보를 읽어 화면 텍스트를 `샘플인원NN` 형식으로 치환
-- 정산자/계좌 텍스트도 샘플 값으로 치환
-- 결과 파일:
-  - `docs/screenshots/study-dashboard-sample.png`
-  - `docs/screenshots/study-detail-sample.png`
-  - `docs/screenshots/afterparty-dashboard-sample.png`
-  - `docs/screenshots/afterparty-detail-sample.png`
-  - `docs/screenshots/members-sample.png`
-
-## 4. 커밋 전 체크리스트
-
-- 스크린샷에 실명이 보이지 않는다.
-- 계좌/정산자 정보가 샘플 값으로 보인다.
-- 5개 파일이 모두 같은 날 갱신되었다.
-- README 링크 경로가 깨지지 않았다.
-
-## 5. 금지 사항
-
-- README 캡처를 임의 수동 스크린샷으로 교체
-- 실데이터가 포함된 이미지 커밋
-- 일부 화면만 부분 갱신 후 커밋
+- 실명, 실제 계좌, 실제 내부 코드가 보이지 않는다.
+- 스크린샷은 모두 `handoff-test` 테스트 기수 기반이다.
+- 기수/참여자/계좌는 샘플 텍스트만 사용한다.
+- `docs/user-guide.md`의 이미지 링크가 깨지지 않는다.
