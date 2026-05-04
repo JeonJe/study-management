@@ -31,17 +31,21 @@
 
 백업 SQL과 counts 파일은 반드시 같은 timestamp 쌍이어야 합니다.
 
-별도 안전 채널로 받을 값:
+새 운영 환경에서 설정할 값:
 
 | 환경변수 | 어디에 설정하나 | 용도 | 예시/주의 |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | `.env.prod`, Vercel Production | 새 Supabase/Postgres 연결 | 평문 노출 금지 |
 | `NEXT_PUBLIC_BASE_URL` | Vercel Production | 공유 링크 기준 origin | `https://example.com` |
-| `APP_PASSWORD` | Vercel Production | 전체관리자 `/admin` 진입 | 별도 전달 |
-| `ADMIN_PAGE_PASSWORD` | Vercel Production | 전역 관리자 역할 | 별도 전달 |
-| `ANGEL_PAGE_PASSWORD` | Vercel Production | 전역 엔젤 역할 | 별도 전달 |
-| `OPERATING_UNIT_CODE_SECRET` | Vercel Production | 기수별 코드 보호 저장 | 운영 중 임의 변경 금지 |
-| `OPERATING_UNITS_ENABLED` | Vercel Production | 기수 관리 기능 활성화 | `true` 또는 `1` |
+| `APP_PASSWORD` | Vercel Production | 전체관리자 `/admin` 진입 | 새로 사용할 값 설정 |
+| `ADMIN_PAGE_PASSWORD` | Vercel Production | 전역 관리자 역할 | 새로 사용할 값 설정 |
+| `ANGEL_PAGE_PASSWORD` | Vercel Production | 전역 엔젤 역할 | 새로 사용할 값 설정 |
+| `OPERATING_UNIT_CODE_SECRET` | Vercel Production | 기수별 입장/엔젤/관리자 코드를 안전하게 저장할 때 쓰는 서버 비밀값 | 랜덤 문자열 새로 설정, 운영 중 변경 금지 |
+| `OPERATING_UNITS_ENABLED` | Vercel Production | 기수별 운영 화면 사용 | 반드시 `true` 또는 `1` |
+
+`OPERATING_UNIT_CODE_SECRET`은 사용자가 입력하는 입장 코드가 아닙니다. DB에 저장되는 기수별 코드를 보호하기 위한 서버 내부 비밀값입니다.
+
+`OPERATING_UNITS_ENABLED`는 기수별 운영 기능을 켜는 flag입니다. 이 서비스는 기수 관리가 기본이므로 Production에서는 반드시 켜야 합니다.
 
 ## 2. 로컬 준비
 
