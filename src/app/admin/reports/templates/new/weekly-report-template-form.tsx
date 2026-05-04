@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 
 type TemplateSectionDraft = {
   id: number;
@@ -199,13 +200,12 @@ export function WeeklyReportTemplateForm({
       </section>
 
       <div className="flex justify-end">
-        <button
-          type="submit"
-          className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white"
+        <PendingSubmitButton
+          idleLabel={submitLabel}
+          pendingLabel="저장 중"
+          className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
           style={{ backgroundColor: "var(--accent)" }}
-        >
-          {submitLabel}
-        </button>
+        />
       </div>
     </form>
   );

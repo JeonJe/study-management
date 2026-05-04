@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -106,17 +107,7 @@ function EditCycleForm({
               제목, 기간, 템플릿, 안내 문구를 수정합니다.
             </p>
           </div>
-          <Link
-            href={cohortAwarePath(unitSlug, "/admin/reports")}
-            className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
-            style={{
-              borderColor: "var(--line)",
-              backgroundColor: "var(--surface)",
-              color: "var(--ink-soft)",
-            }}
-          >
-            목록으로
-          </Link>
+          <BackLink href={cohortAwarePath(unitSlug, "/admin/reports")}>목록으로</BackLink>
         </div>
 
         <form action={updateWeeklyReportCycleAction} className="mt-6 grid gap-5">
@@ -200,13 +191,12 @@ function EditCycleForm({
           </label>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white"
+            <PendingSubmitButton
+              idleLabel="저장"
+              pendingLabel="저장 중"
+              className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
               style={{ backgroundColor: "var(--accent)" }}
-            >
-              저장
-            </button>
+            />
           </div>
         </form>
       </div>

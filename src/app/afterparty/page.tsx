@@ -5,6 +5,7 @@ import {
 } from "@/app/actions";
 import { DatePicker } from "@/app/date-picker";
 import { DashboardHeader } from "@/app/dashboard-header";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { isAuthenticatedForUnit } from "@/lib/auth";
 import { pickNearestUpcomingIsoDate, toKstIsoDate } from "@/lib/date-utils";
 import { extractHttpUrl } from "@/lib/location-utils";
@@ -143,8 +144,7 @@ function CreateAfterpartyModal({
       </summary>
 
       <div
-        className="absolute bottom-18 right-0 max-h-[calc(100vh-8rem)] w-[min(calc(100vw-3rem),720px)] overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md fade-in"
-        style={{ borderColor: "var(--line)", backgroundColor: "rgba(255, 255, 255, 0.95)" }}
+        className="modal-surface absolute bottom-18 right-0 max-h-[calc(100vh-8rem)] w-[min(calc(100vw-3rem),720px)] overflow-y-auto p-4 backdrop-blur-md fade-in"
       >
         <div className="mb-4">
           <p className="text-base font-extrabold" style={{ color: "var(--ink)" }}>뒷풀이 만들기</p>
@@ -267,13 +267,12 @@ function CreateAfterpartyModal({
             </label>
           </section>
 
-          <button
-            type="submit"
-            className="btn-press h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          <PendingSubmitButton
+            idleLabel="생성"
+            pendingLabel="생성 중"
+            className="btn-press h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
             style={{ backgroundColor: "var(--accent)", boxShadow: "0 10px 20px rgba(13, 127, 242, 0.25)" }}
-          >
-            생성
-          </button>
+          />
         </form>
       </div>
     </details>

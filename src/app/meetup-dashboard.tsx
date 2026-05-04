@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { DatePicker } from "@/app/date-picker";
 import { DashboardHeader } from "@/app/dashboard-header";
 import { OfflineStudyCaptureButton } from "@/app/offline-study-capture-button";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { isAuthenticatedForUnit } from "@/lib/auth";
 import { pickNearestUpcomingIsoDate, toKstIsoDate } from "@/lib/date-utils";
 import { extractHttpUrl } from "@/lib/location-utils";
@@ -236,9 +237,11 @@ function AdminLoginModal({ adminAuthStatus }: { adminAuthStatus: string }) {
                 {adminAuthMessage}
               </p>
             ) : null}
-            <button type="submit" className="login-submit">
-              관리자 입장
-            </button>
+            <PendingSubmitButton
+              idleLabel="관리자 입장"
+              pendingLabel="확인 중"
+              className="login-submit"
+            />
           </form>
         </div>
       </div>
@@ -408,9 +411,11 @@ export function LoginScreen({
             ) : null}
           </div>
 
-          <button type="submit" className="login-submit">
-            입장
-          </button>
+          <PendingSubmitButton
+            idleLabel="입장"
+            pendingLabel="확인 중"
+            className="login-submit"
+          />
         </form>
 
         <div className="li li-d2" style={{ marginTop: "1rem", textAlign: "center" }}>

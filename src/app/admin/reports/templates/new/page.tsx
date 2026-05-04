@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -43,17 +43,7 @@ function TemplateForm({ unitSlug }: { unitSlug: string }) {
               보고 화면의 입력 항목과 작성 가이드를 저장합니다.
             </p>
           </div>
-          <Link
-            href={cohortAwarePath(unitSlug, "/admin/reports")}
-            className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
-            style={{
-              borderColor: "var(--line)",
-              backgroundColor: "var(--surface)",
-              color: "var(--ink-soft)",
-            }}
-          >
-            목록으로
-          </Link>
+          <BackLink href={cohortAwarePath(unitSlug, "/admin/reports")}>목록으로</BackLink>
         </div>
 
         <WeeklyReportTemplateForm action={createWeeklyReportTemplateAction} unitSlug={unitSlug} />

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Noto_Sans_KR, Plus_Jakarta_Sans } from "next/font/google";
+import { NavigationLoadingBar } from "@/app/navigation-loading-bar";
 import { APP_LANGUAGE } from "@/lib/app-config";
 import "./globals.css";
 
@@ -28,6 +30,9 @@ export default function RootLayout({
   return (
     <html lang={APP_LANGUAGE}>
       <body className={`${plusJakartaSans.variable} ${notoSansKr.variable} antialiased`}>
+        <Suspense fallback={null}>
+          <NavigationLoadingBar />
+        </Suspense>
         {children}
       </body>
     </html>

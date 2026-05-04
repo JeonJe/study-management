@@ -11,7 +11,7 @@ import {
   deleteRsvpAction,
   moveRsvpToWaitlistAction,
 } from "@/app/actions";
-import { DeleteConfirmButton } from "@/app/meetings/[meetingId]/delete-confirm-button";
+import { DeleteConfirmButton } from "@/app/delete-confirm-button";
 import { PendingSubmitButton } from "@/app/pending-submit-button";
 import type { RsvpRecord } from "@/lib/meetup-store";
 import { PARTICIPANT_ROLE_META } from "@/lib/participant-role-utils";

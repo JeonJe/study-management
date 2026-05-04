@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -142,13 +143,7 @@ function CycleDetailPanel({
   return (
     <section className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={cohortAwarePath(unitSlug, "/admin/reports")}
-          className="rounded-full border px-3 py-1 text-sm font-bold"
-          style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
-        >
-          목록
-        </Link>
+        <BackLink href={cohortAwarePath(unitSlug, "/admin/reports")}>목록으로</BackLink>
         <Link
           href={cohortAwarePath(unitSlug, `/admin/reports/cycles/${cycle.id}/edit`)}
           className="btn-press rounded-full px-4 py-2 text-sm font-bold text-white"

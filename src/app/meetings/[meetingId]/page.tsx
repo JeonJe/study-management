@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackLink } from "@/app/back-link";
 import {
   bulkCreateRsvpsAction,
   deleteMeetingAction,
@@ -20,7 +20,7 @@ import {
 import { cohortAwarePath, cohortEntryLoginPath } from "@/lib/cohort-routes";
 import { redirect } from "next/navigation";
 import { EditManageModal } from "@/app/meetings/[meetingId]/edit-manage-modal";
-import { DeleteConfirmButton } from "@/app/meetings/[meetingId]/delete-confirm-button";
+import { DeleteConfirmButton } from "@/app/delete-confirm-button";
 import { ParticipantActionModal } from "@/app/meetings/[meetingId]/participant-action-modal";
 import { ParticipantAddModal } from "@/app/meetings/[meetingId]/participant-add-modal";
 import { extractHttpUrl, extractMapEmbedInfo } from "@/lib/location-utils";
@@ -489,13 +489,7 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
         <ToastNotice message="정원이 가득 찼습니다" tone="danger" />
       ) : null}
       <div className="mb-4">
-        <Link
-          href={backPath}
-          className="text-sm font-semibold hover:underline"
-          style={{ color: "var(--accent)" }}
-        >
-          ← 보드로 돌아가기
-        </Link>
+        <BackLink href={backPath}>보드로 돌아가기</BackLink>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -610,9 +604,12 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                         </label>
                       ) : null}
                       <LeaderChipInput name="leaders" initialLeaders={meeting.leaders} placeholder="방장 이름 입력" />
-                      <button type="submit" className="btn-press h-10 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: "var(--ink)" }}>
-                        저장
-                      </button>
+                      <PendingSubmitButton
+                        idleLabel="저장"
+                        pendingLabel="저장 중"
+                        className="btn-press h-10 rounded-lg text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                        style={{ backgroundColor: "var(--ink)" }}
+                      />
                     </form>
                   </section>
 
@@ -861,13 +858,13 @@ export default async function MeetingDetailPage({ params, searchParams }: PagePr
                 className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
                 placeholder="빠른추가 이름 검색"
               />
-              <button
-                type="submit"
-                className="btn-press h-10 shrink-0 border-l px-3 text-sm font-semibold"
+              <PendingSubmitButton
+                idleLabel="검색"
+                pendingLabel="검색 중"
+                navigationProgress
+                className="btn-press h-10 shrink-0 border-l px-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-70"
                 style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface-alt)" }}
-              >
-                검색
-              </button>
+              />
             </div>
           </form>
 

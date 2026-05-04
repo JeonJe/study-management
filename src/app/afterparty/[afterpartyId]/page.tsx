@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
+import { DeleteConfirmButton } from "@/app/delete-confirm-button";
 import {
   bulkCreateAfterpartyParticipantsAction,
   createAfterpartySettlementAction,
@@ -16,7 +18,6 @@ import {
   type AfterpartySettlement,
 } from "@/lib/afterparty-store";
 import { EditManageModal } from "@/app/meetings/[meetingId]/edit-manage-modal";
-import { DeleteConfirmButton } from "@/app/meetings/[meetingId]/delete-confirm-button";
 import type { ParticipantRole } from "@/lib/meetup-store";
 import {
   cachedGetAfterpartyById,
@@ -166,13 +167,13 @@ function ParticipantRow({
             <input type="hidden" name="participantId" value={row.id} />
             <input type="hidden" name="returnDate" value={returnDate} />
             <input type="hidden" name="returnPath" value={returnPath} />
-            <button
-              type="submit"
+            <DeleteConfirmButton
+              confirmMessage={`${row.name}을(를) 뒷풀이 참여자 목록에서 제외합니다.`}
               className="btn-press rounded-full border px-2 py-0.5 text-[10px] font-semibold"
               style={{ borderColor: "#fecaca", color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
             >
               삭제
-            </button>
+            </DeleteConfirmButton>
           </form>
         </div>
       </div>
@@ -359,9 +360,7 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="mb-4">
-        <Link href={backPath} className="text-sm font-semibold hover:underline" style={{ color: "var(--accent)" }}>
-          ← 뒷풀이 보드로 돌아가기
-        </Link>
+        <BackLink href={backPath}>보드로 돌아가기</BackLink>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -528,13 +527,12 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
                     비밀번호 보호 해제
                   </label>
                 ) : null}
-                <button
-                  type="submit"
-                  className="btn-press h-10 rounded-lg text-sm font-semibold text-white md:w-28"
+                <PendingSubmitButton
+                  idleLabel="정보 저장"
+                  pendingLabel="저장 중"
+                  className="btn-press h-10 rounded-lg text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70 md:w-28"
                   style={{ backgroundColor: "var(--ink)" }}
-                >
-                  정보 저장
-                </button>
+                />
               </form>
             </section>
 
@@ -571,13 +569,12 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
                   style={{ borderColor: "var(--line)" }}
                   placeholder="계좌번호 (은행명 + 번호)"
                 />
-                <button
-                  type="submit"
-                  className="btn-press h-9 rounded-lg border px-3 text-xs font-semibold md:col-span-2 md:w-full"
+                <PendingSubmitButton
+                  idleLabel="정산 추가"
+                  pendingLabel="추가 중"
+                  className="btn-press h-9 rounded-lg border px-3 text-xs font-semibold disabled:cursor-wait disabled:opacity-70 md:col-span-2 md:w-full"
                   style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface)" }}
-                >
-                  정산 추가
-                </button>
+                />
               </form>
 
               <div className="mt-3 grid gap-3">
@@ -596,18 +593,18 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
                         {teamFilter ? <input type="hidden" name="team" value={teamFilter} /> : null}
                         {participantSearch ? <input type="hidden" name="participantSearch" value={participantSearch} /> : null}
                         <input type="hidden" name="settlement" value={settlement.id} />
-                        <button
-                          type="submit"
-                          className="text-[11px] font-semibold hover:underline disabled:no-underline"
+                        <PendingSubmitButton
+                          idleLabel={settlement.id === selectedSettlement.id ? "선택됨" : "이 정산으로 전환"}
+                          pendingLabel="전환 중"
+                          disabled={settlement.id === selectedSettlement.id}
+                          navigationProgress
+                          className="text-[11px] font-semibold hover:underline disabled:no-underline disabled:cursor-wait disabled:opacity-70"
                           style={
                             settlement.id === selectedSettlement.id
                               ? { color: "var(--ink-muted)" }
                               : { color: "var(--accent)" }
                           }
-                          disabled={settlement.id === selectedSettlement.id}
-                        >
-                          {settlement.id === selectedSettlement.id ? "선택됨" : "이 정산으로 전환"}
-                        </button>
+                        />
                       </form>
                     </div>
 
@@ -644,13 +641,12 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
                         />
                       </div>
                       <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          className="btn-press h-8 rounded-lg border px-2 text-[11px] font-semibold"
+                        <PendingSubmitButton
+                          idleLabel="저장"
+                          pendingLabel="저장 중"
+                          className="btn-press h-8 rounded-lg border px-2 text-[11px] font-semibold disabled:cursor-wait disabled:opacity-70"
                           style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
-                        >
-                          저장
-                        </button>
+                        />
                       </div>
                     </form>
 
@@ -688,7 +684,7 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
               className="mt-4 rounded-xl border p-4"
               style={{ borderColor: "#fecaca", backgroundColor: "var(--danger-bg)" }}
             >
-              <h3 className="text-xs font-semibold" style={{ color: "var(--danger)" }}>모임 삭제</h3>
+              <h3 className="text-xs font-semibold" style={{ color: "var(--danger)" }}>뒷풀이 삭제</h3>
               <p className="mt-1 text-xs" style={{ color: "var(--ink-soft)" }}>
                 이 뒷풀이와 참여자 데이터가 함께 삭제됩니다.
               </p>
@@ -861,13 +857,13 @@ export default async function AfterpartyDetailPage({ params, searchParams }: Pag
               className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
               placeholder="빠른추가 이름 검색"
             />
-            <button
-              type="submit"
-              className="btn-press h-10 shrink-0 border-l px-3 text-sm font-semibold"
+            <PendingSubmitButton
+              idleLabel="검색"
+              pendingLabel="검색 중"
+              navigationProgress
+              className="btn-press h-10 shrink-0 border-l px-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-70"
               style={{ borderColor: "var(--line)", color: "var(--ink-soft)", backgroundColor: "var(--surface-alt)" }}
-            >
-              검색
-            </button>
+            />
           </div>
         </form>
 

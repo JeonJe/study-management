@@ -5,6 +5,7 @@ import {
   RoleAccessRequired,
   RoleNotConfigured,
 } from "@/app/role-page-view";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { RoleShell } from "@/app/role-shell";
 import {
   isAuthenticatedForUnit,
@@ -348,13 +349,13 @@ function HistoryPanel({
               style={{ borderColor: "var(--line)", color: "var(--ink)" }}
             />
           </label>
-          <button
-            type="submit"
-            className="btn-press h-11 rounded-lg px-4 text-sm font-bold text-white"
+          <PendingSubmitButton
+            idleLabel="조회"
+            pendingLabel="조회 중"
+            navigationProgress
+            className="btn-press h-11 rounded-lg px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
             style={{ backgroundColor: "var(--accent)" }}
-          >
-            조회
-          </button>
+          />
         </form>
 
         {!data.error ? (

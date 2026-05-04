@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
+import { DeleteConfirmButton } from "@/app/delete-confirm-button";
 import { WeeklyReportTemplateForm } from "@/app/admin/reports/templates/new/weekly-report-template-form";
 import {
   RoleAccessRequired,
@@ -93,17 +94,7 @@ function TemplateEditPanel({
               입력 항목과 작성 가이드를 수정합니다.
             </p>
           </div>
-          <Link
-            href={cohortAwarePath(unitSlug, "/admin/reports")}
-            className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
-            style={{
-              borderColor: "var(--line)",
-              backgroundColor: "var(--surface)",
-              color: "var(--ink-soft)",
-            }}
-          >
-            목록으로
-          </Link>
+          <BackLink href={cohortAwarePath(unitSlug, "/admin/reports")}>목록으로</BackLink>
         </div>
 
         <WeeklyReportTemplateForm
@@ -122,8 +113,8 @@ function TemplateEditPanel({
           <form action={deleteWeeklyReportTemplateAction} className="flex justify-end">
             <input type="hidden" name="unit" value={unitSlug} />
             <input type="hidden" name="templateId" value={template.id} />
-            <button
-              type="submit"
+            <DeleteConfirmButton
+              confirmMessage={`"${template.name}" 템플릿을 정말 삭제하시겠습니까?`}
               className="rounded-full border px-4 py-2 text-sm font-bold"
               style={{
                 borderColor: "#fecaca",
@@ -132,7 +123,7 @@ function TemplateEditPanel({
               }}
             >
               삭제
-            </button>
+            </DeleteConfirmButton>
           </form>
         </div>
       </div>

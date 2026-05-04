@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { notifyNavigationLoadingStart } from "@/app/navigation-loading-bar";
 
 type QuerySelectFilterOption = {
   label: string;
@@ -51,6 +52,7 @@ export function QuerySelectFilter({
         const queryText = query.toString();
         const nextUrl = `${pathname}${queryText ? `?${queryText}` : ""}${hash ? `#${hash}` : ""}`;
 
+        notifyNavigationLoadingStart();
         startTransition(() => {
           router.replace(nextUrl, { scroll: false });
         });

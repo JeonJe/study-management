@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { logoutAction } from "@/app/actions";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { cohortAwarePath } from "@/lib/cohort-routes";
 import { operatingUnitDisplayName } from "@/lib/operating-unit-store";
 import type { CSSProperties, ReactNode } from "react";
@@ -126,17 +127,16 @@ export function DashboardHeader({
               {extraActions}
 
               <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="btn-press min-h-8 shrink-0 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:opacity-90"
+                <PendingSubmitButton
+                  idleLabel="로그아웃"
+                  pendingLabel="처리 중"
+                  className="btn-press min-h-8 shrink-0 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
                   style={{
                     borderColor: "#fecaca",
                     color: "var(--danger)",
                     backgroundColor: "var(--danger-bg)",
                   }}
-                >
-                  로그아웃
-                </button>
+                />
               </form>
             </div>
 

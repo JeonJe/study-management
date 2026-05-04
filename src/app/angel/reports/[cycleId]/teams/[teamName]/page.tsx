@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -184,13 +185,7 @@ function TeamReportForm({
       {submitted ? <ToastNotice message="저장 완료" /> : null}
       {unsubmitted ? <ToastNotice message="변경 완료" /> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={reportListPath}
-          className="rounded-full border px-3 py-1 text-sm font-bold"
-          style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
-        >
-          팀 목록
-        </Link>
+        <BackLink href={reportListPath}>팀 목록으로</BackLink>
       </div>
 
       <article className="card-static p-5 sm:p-6">
@@ -211,17 +206,16 @@ function TeamReportForm({
                 <input type="hidden" name="cycleId" value={cycle.id} />
                 <input type="hidden" name="reportId" value={report.id} />
                 <input type="hidden" name="returnPath" value={returnPath} />
-                <button
-                  type="submit"
-                  className="btn-press rounded-full border px-3 py-1 text-sm font-bold"
+                <PendingSubmitButton
+                  idleLabel="미제출"
+                  pendingLabel="변경 중"
+                  className="btn-press rounded-full border px-3 py-1 text-sm font-bold disabled:cursor-wait disabled:opacity-70"
                   style={{
                     borderColor: "var(--line)",
                     backgroundColor: "var(--surface)",
                     color: "var(--ink-soft)",
                   }}
-                >
-                  미제출
-                </button>
+                />
               </form>
             ) : null}
             <WeeklyReportEditDialog

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import { loginRoleAction } from "@/app/role-actions";
 import {
   type RolePageDefinition,
@@ -104,13 +105,12 @@ export function RoleAccessRequired({
               비밀번호가 맞지 않습니다.
             </p>
           ) : null}
-          <button
-            type="submit"
-            className="btn-press h-12 rounded-full px-4 text-sm font-bold text-white"
+          <PendingSubmitButton
+            idleLabel="열기"
+            pendingLabel="확인 중"
+            className="btn-press h-12 rounded-full px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
             style={{ backgroundColor: "var(--accent)" }}
-          >
-            열기
-          </button>
+          />
         </form>
       </div>
     </section>

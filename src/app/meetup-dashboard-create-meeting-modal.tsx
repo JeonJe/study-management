@@ -1,5 +1,6 @@
 import { createMeetingAction } from "@/app/actions";
 import { LeaderChipInput } from "@/app/leader-chip-input";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import type { CSSProperties } from "react";
 import type { MeetingKind } from "@/lib/meeting-kind";
 import { MAX_MEETING_CAPACITY } from "@/lib/meetup-store";
@@ -156,13 +157,12 @@ export function CreateMeetingModal({
             </label>
           </section>
 
-          <button
-            type="submit"
-            className="btn-press h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          <PendingSubmitButton
+            idleLabel="생성"
+            pendingLabel="생성 중"
+            className="btn-press h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
             style={{ backgroundColor: "var(--accent)", boxShadow: "0 10px 20px rgba(13, 127, 242, 0.25)" }}
-          >
-            생성
-          </button>
+          />
         </form>
       </div>
     </details>

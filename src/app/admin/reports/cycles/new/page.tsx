@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
+import { PendingSubmitButton } from "@/app/pending-submit-button";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -85,17 +86,7 @@ function CycleForm({
               엔젤이 작성할 주간 보고를 엽니다.
             </p>
           </div>
-          <Link
-            href={cohortAwarePath(unitSlug, "/admin/reports")}
-            className="btn-press rounded-full border px-4 py-2 text-sm font-bold"
-            style={{
-              borderColor: "var(--line)",
-              backgroundColor: "var(--surface)",
-              color: "var(--ink-soft)",
-            }}
-          >
-            목록으로
-          </Link>
+          <BackLink href={cohortAwarePath(unitSlug, "/admin/reports")}>목록으로</BackLink>
         </div>
 
         {loadError ? (
@@ -186,13 +177,12 @@ function CycleForm({
           </label>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white"
+            <PendingSubmitButton
+              idleLabel="생성"
+              pendingLabel="생성 중"
+              className="btn-press h-12 min-w-32 rounded-full px-6 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
               style={{ backgroundColor: "var(--accent)" }}
-            >
-              생성
-            </button>
+            />
           </div>
         </form>
       </div>

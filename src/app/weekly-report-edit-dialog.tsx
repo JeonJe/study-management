@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
+import { LoadingSpinner } from "@/app/pending-submit-button";
 
 type WeeklyReportEditDialogProps = {
   triggerLabel: string;
@@ -22,6 +23,7 @@ export function WeeklyReportEditDialog({
   children,
 }: WeeklyReportEditDialogProps) {
   const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -93,12 +95,22 @@ export function WeeklyReportEditDialog({
                 닫기
               </button>
               <button
-                type="submit"
-                form={formId}
-                className="btn-press h-12 rounded-full px-5 text-sm font-bold text-white"
+                type="button"
+                className="btn-press h-12 rounded-full px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-70"
                 style={{ backgroundColor: "var(--accent)" }}
+                disabled={submitting}
+                aria-busy={submitting}
+                onClick={() => {
+                  const form = document.getElementById(formId) as HTMLFormElement | null;
+                  if (!form?.reportValidity()) return;
+                  setSubmitting(true);
+                  form.requestSubmit();
+                }}
               >
-                저장
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  {submitting ? <LoadingSpinner /> : null}
+                  {submitting ? "저장 중" : "저장"}
+                </span>
               </button>
             </div>
           </div>

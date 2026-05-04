@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -211,13 +212,7 @@ function TeamHistoryPanel({
   return (
     <section className="grid gap-5">
       <section className="app-section p-5 sm:p-6">
-        <Link
-          href={historyListHref(period, unitSlug)}
-          className="text-sm font-bold hover:underline"
-          style={{ color: "var(--accent-strong)" }}
-        >
-          ← 팀별 참여율로 돌아가기
-        </Link>
+        <BackLink href={historyListHref(period, unitSlug)}>팀별 참여율로 돌아가기</BackLink>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold" style={{ color: "var(--ink)" }}>

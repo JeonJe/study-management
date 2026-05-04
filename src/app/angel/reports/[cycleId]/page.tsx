@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BackLink } from "@/app/back-link";
 import {
   RoleAccessRequired,
   RoleNotConfigured,
@@ -193,13 +194,7 @@ function WeeklyReportAngelPanel({
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={cohortAwarePath(unitSlug, "/angel/reports")}
-            className="rounded-full border px-3 py-1 text-sm font-bold"
-            style={{ borderColor: "var(--line)", color: "var(--ink-soft)" }}
-          >
-            주차 목록
-          </Link>
+          <BackLink href={cohortAwarePath(unitSlug, "/angel/reports")}>주차 목록으로</BackLink>
         </div>
       </div>
 
