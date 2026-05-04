@@ -12,7 +12,18 @@ export const HISTORY_FILTER_END_DATE = "2026-03-31";
 
 export const AUTH_STATE = path.join(__dirname, "..", ".auth", "state.json");
 export const BASE_URL =
-  process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  requireLocalBaseUrl(process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000");
+
+export function requireLocalBaseUrl(value: string): string {
+  const parsed = new URL(value);
+  const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+  if (parsed.protocol !== "http:" || !localHosts.has(parsed.hostname)) {
+    throw new Error(
+      `E2E는 로컬 서버에서만 실행할 수 있습니다. PLAYWRIGHT_BASE_URL=${value}`
+    );
+  }
+  return value;
+}
 
 type CohortSection =
   | "loop-pak"

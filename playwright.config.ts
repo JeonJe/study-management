@@ -1,8 +1,9 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
+import { requireLocalBaseUrl } from "./e2e/support/test-config";
 
 const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  requireLocalBaseUrl(process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000");
 
 export default defineConfig({
   testDir: "./e2e",

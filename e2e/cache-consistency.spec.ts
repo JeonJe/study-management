@@ -1,4 +1,4 @@
-import { test, expect, chromium } from "@playwright/test";
+import { test, expect, chromium, type Page } from "@playwright/test";
 import {
   AUTH_STATE,
   CACHE_TEST_DATE,
@@ -12,27 +12,52 @@ const MEMBERS_PAGE = cohortPath("members");
 
 // ---------- helpers ----------
 
+async function openManagementDialog(page: Page) {
+  await page.waitForLoadState("domcontentloaded");
+  const manageButton = page.getByRole("button", { name: "수정 관리" });
+  await expect(manageButton).toBeVisible({ timeout: 10_000 });
+  const managementDialog = page
+    .locator('[role="dialog"]')
+    .filter({ hasText: "수정 관리" })
+    .first();
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await manageButton.click();
+    try {
+      await expect(managementDialog).toBeVisible({ timeout: 1_500 });
+      return managementDialog;
+    } catch {
+      await page.waitForTimeout(250);
+    }
+  }
+
+  await expect(managementDialog).toBeVisible({ timeout: 10_000 });
+  return managementDialog;
+}
+
 /** 모임 상세 페이지에서 삭제 수행 */
-async function deleteMeetingFromDetail(page: import("@playwright/test").Page) {
-  page.once("dialog", (d) => d.accept());
-  await page.locator('button:has-text("수정 관리")').click();
-  await page.locator('[role="dialog"]').waitFor();
-  await page
-    .locator('[role="dialog"] button:has-text("이 모임 삭제")')
-    .click();
+async function deleteMeetingFromDetail(page: Page) {
+  const managementDialog = await openManagementDialog(page);
+  await managementDialog.getByRole("button", { name: "이 모임 삭제" }).click();
+  const confirmDialog = page
+    .locator('[role="dialog"]')
+    .filter({ hasText: "삭제할까요?" })
+    .last();
+  await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
+  await confirmDialog.getByRole("button", { name: "확인" }).click();
   await page.waitForURL(waitForCohortDateUrl("study"), { timeout: 10_000 });
 }
 
 /** 뒤풀이 상세 페이지에서 삭제 수행 */
-async function deleteAfterpartyFromDetail(
-  page: import("@playwright/test").Page,
-) {
-  page.once("dialog", (d) => d.accept());
-  await page.locator('button:has-text("수정 관리")').click();
-  await page.locator('[role="dialog"]').waitFor();
-  await page
-    .locator('[role="dialog"] button:has-text("뒷풀이 삭제")')
-    .click();
+async function deleteAfterpartyFromDetail(page: Page) {
+  const managementDialog = await openManagementDialog(page);
+  await managementDialog.getByRole("button", { name: "뒷풀이 삭제" }).click();
+  const confirmDialog = page
+    .locator('[role="dialog"]')
+    .filter({ hasText: "삭제할까요?" })
+    .last();
+  await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
+  await confirmDialog.getByRole("button", { name: "확인" }).click();
   await page.waitForURL(waitForCohortDateUrl("afterparty"), {
     timeout: 10_000,
   });

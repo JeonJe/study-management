@@ -26,11 +26,29 @@ export default async function globalSetup() {
   );
 
   await page.getByLabel("입장 코드").fill(password);
-  await page.locator('form:has(input[name="authScope"][value="unit"]) button.login-submit').click();
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === `/cohorts/${TEST_OPERATING_UNIT_SLUG}/loop-pak`, {
+      timeout: 15_000,
+    }),
+    page.locator('form:has(input[name="authScope"][value="unit"]) button.login-submit').click(),
+  ]);
 
   // 대시보드 로드 대기 (로그인 성공)
-  await page.waitForURL(/\/cohorts\/[^/]+\/loop-pak/, { timeout: 15_000 });
   await page.waitForSelector("text=모임 수", { timeout: 15_000 });
+
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD?.trim();
+  if (adminPassword) {
+    const adminPath = `/cohorts/${TEST_OPERATING_UNIT_SLUG}/admin`;
+    await page.goto(`${BASE_URL}${adminPath}`);
+    await page.getByLabel("비밀번호").fill(adminPassword);
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === adminPath && !url.searchParams.has("access"), {
+        timeout: 15_000,
+      }),
+      page.getByRole("button", { name: "열기" }).click(),
+    ]);
+    await page.waitForSelector("text=멤버/팀/엔젤 배정", { timeout: 15_000 });
+  }
 
   await page.context().storageState({ path: AUTH_STATE });
   await browser.close();

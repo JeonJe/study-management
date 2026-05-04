@@ -97,25 +97,10 @@ test.describe("페이지 성능", () => {
     // 4. 1500ms 이내
     expect(elapsed).toBeLessThan(1500);
 
-    // 5. 생성한 모임 확인 후 삭제
+    // 5. 생성한 모임 확인. 정리는 afterAll에서 일괄 처리한다.
     await expect(
       page.locator(`a[aria-label="${title} 상세 보기"]`).first(),
     ).toBeVisible({ timeout: 10_000 });
-
-    const link = page
-      .locator(`a[aria-label="${title} 상세 보기"]`)
-      .first();
-    const detailUrl = await link.getAttribute("href");
-    if (detailUrl) {
-      await page.goto(detailUrl);
-      page.once("dialog", (d) => d.accept());
-      await page.locator('button:has-text("수정 관리")').click();
-      await page.locator('[role="dialog"]').waitFor();
-      await page
-        .locator('[role="dialog"] button:has-text("이 모임 삭제")')
-        .click();
-      await page.waitForURL(waitForCohortDateUrl("study"));
-    }
   });
 
   // 이전 실행 잔여 데이터 정리
@@ -137,12 +122,21 @@ test.describe("페이지 성능", () => {
       await link.click();
       await page.waitForLoadState("domcontentloaded");
       try {
-        page.once("dialog", (d) => d.accept());
-        await page.locator('button:has-text("수정 관리")').click();
-        await page.locator('[role="dialog"]').waitFor();
-        await page
-          .locator('[role="dialog"] button:has-text("이 모임 삭제")')
-          .click();
+        const manageButton = page.getByRole("button", { name: "수정 관리" });
+        await expect(manageButton).toBeVisible({ timeout: 10_000 });
+        await manageButton.click();
+        const managementDialog = page
+          .locator('[role="dialog"]')
+          .filter({ hasText: "수정 관리" })
+          .first();
+        await expect(managementDialog).toBeVisible({ timeout: 10_000 });
+        await managementDialog.getByRole("button", { name: "이 모임 삭제" }).click();
+        const confirmDialog = page
+          .locator('[role="dialog"]')
+          .filter({ hasText: "삭제할까요?" })
+          .last();
+        await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
+        await confirmDialog.getByRole("button", { name: "확인" }).click();
         await page.waitForURL("**/*", { timeout: 10_000 });
       } catch {
         break;
