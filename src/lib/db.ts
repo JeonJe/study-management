@@ -83,14 +83,15 @@ function databaseSslConfig(): false | { rejectUnauthorized: boolean } {
   }
 
   if (
-    sslMode === "no-verify" ||
-    rejectUnauthorizedOverride === "0" ||
-    rejectUnauthorizedOverride === "false"
+    sslMode === "verify-full" ||
+    sslMode === "verify-ca" ||
+    rejectUnauthorizedOverride === "1" ||
+    rejectUnauthorizedOverride === "true"
   ) {
-    return { rejectUnauthorized: false };
+    return { rejectUnauthorized: true };
   }
 
-  return { rejectUnauthorized: true };
+  return { rejectUnauthorized: false };
 }
 
 async function getPool(): Promise<PgPool> {
