@@ -32,6 +32,7 @@ flowchart LR
 
 | 문서 | 읽는 사람 | 내용 |
 | --- | --- | --- |
+| `docs/README.md` | 모두 | 문서 폴더 안내와 읽는 순서 |
 | `docs/handoff-guide.md` | 비개발자/운영자/PM | 제품 구조, 권한, 운영 흐름 |
 | `docs/user-guide.md` | 실제 사용자/인수자 | 기능별 사용법과 화면 스크린샷 |
 | `docs/operations-setup-guide.md` | 운영자/AI 에이전트 | 배포 URL, DB URL, 관리자 코드 셋팅 |
