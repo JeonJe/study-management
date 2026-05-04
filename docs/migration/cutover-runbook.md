@@ -78,9 +78,7 @@ node scripts/migrate-data.mjs \
 | `DATABASE_URL` | 새 Supabase project connection string | SM-7A/SM-7B 검증 완료 후에만 변경 |
 | `NEXT_PUBLIC_BASE_URL` | 최종 공유 기준 URL | 공유 링크가 preview origin을 쓰지 않게 고정 |
 | `APP_PASSWORD` | 기존 값 유지 | 운영자/멤버 접근 회귀 방지 |
-| `ADMIN_PAGE_PASSWORD` | 기존 값 유지 | 관리자 접근 회귀 방지 |
-| `ANGEL_PAGE_PASSWORD` | 기존 값 유지 | 엔젤 접근 회귀 방지 |
-| `OPERATING_UNITS_ENABLED` | 기존 운영 값 유지 | feature flag 회귀 방지 |
+| `OPERATING_UNIT_CODE_SECRET` | 기존 값 유지 | 기수별 코드 검증 회귀 방지 |
 
 전환 순서:
 

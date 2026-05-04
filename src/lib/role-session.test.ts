@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   cookieGetMock,
@@ -39,31 +38,13 @@ import {
 } from "@/lib/role-session";
 
 describe("role-session", () => {
-  const prevAdminPassword = process.env.ADMIN_PAGE_PASSWORD;
-  const prevAngelPassword = process.env.ANGEL_PAGE_PASSWORD;
-
   beforeEach(() => {
-    process.env.ADMIN_PAGE_PASSWORD = "global-admin";
-    process.env.ANGEL_PAGE_PASSWORD = "global-angel";
     cookieGetMock.mockReset();
     cookieSetMock.mockReset();
     createOperatingUnitRoleAccessTokenMock.mockReset();
     normalizeOperatingUnitSlugMock.mockClear();
     verifyOperatingUnitRoleAccessTokenMock.mockReset();
     verifyOperatingUnitRoleCodeMock.mockReset();
-  });
-
-  afterEach(() => {
-    if (prevAdminPassword === undefined) {
-      delete process.env.ADMIN_PAGE_PASSWORD;
-    } else {
-      process.env.ADMIN_PAGE_PASSWORD = prevAdminPassword;
-    }
-    if (prevAngelPassword === undefined) {
-      delete process.env.ANGEL_PAGE_PASSWORD;
-    } else {
-      process.env.ANGEL_PAGE_PASSWORD = prevAngelPassword;
-    }
   });
 
   it("stores a unit-scoped role token returned by the operating unit store", async () => {
@@ -122,13 +103,10 @@ describe("role-session", () => {
     expect(createRoleScopedToken("admin", "edit", "payload", "loop-pak-4")).toBeNull();
   });
 
-  it("keeps global role cookies compatible with environment passwords", async () => {
-    const token = createHash("sha256")
-      .update("saturday-meetup::admin:global-admin")
-      .digest("hex");
-    cookieGetMock.mockReturnValue({ value: `admin.${token}` });
+  it("does not accept legacy global role cookies without a unit slug", async () => {
+    cookieGetMock.mockReturnValue({ value: "admin.legacy-token" });
 
-    await expect(getCurrentRolePageRole()).resolves.toBe("admin");
+    await expect(getCurrentRolePageRole()).resolves.toBeNull();
   });
 
   it("verifies a unit role password through the operating unit role code verifier", async () => {

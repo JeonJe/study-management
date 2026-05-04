@@ -17,8 +17,6 @@ npm run dev
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL 연결 |
 | `APP_PASSWORD` | 전체관리자/기본 입장 코드 |
-| `ADMIN_PAGE_PASSWORD` | 전역 관리자 코드 |
-| `ANGEL_PAGE_PASSWORD` | 전역 엔젤 코드 |
 | `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 보호용 비밀값 |
 | `NEXT_PUBLIC_BASE_URL` | 공유 링크 기준 URL |
 

@@ -38,14 +38,9 @@
 | `DATABASE_URL` | `.env.prod`, Vercel Production | 새 Supabase/Postgres 연결 | 평문 노출 금지 |
 | `NEXT_PUBLIC_BASE_URL` | Vercel Production | 공유 링크 기준 origin | `https://example.com` |
 | `APP_PASSWORD` | Vercel Production | 전체관리자 `/admin` 진입 | 새로 사용할 값 설정 |
-| `ADMIN_PAGE_PASSWORD` | Vercel Production | 전역 관리자 역할 | 새로 사용할 값 설정 |
-| `ANGEL_PAGE_PASSWORD` | Vercel Production | 전역 엔젤 역할 | 새로 사용할 값 설정 |
 | `OPERATING_UNIT_CODE_SECRET` | Vercel Production | 기수별 입장/엔젤/관리자 코드를 안전하게 저장할 때 쓰는 서버 비밀값 | 랜덤 문자열 새로 설정, 운영 중 변경 금지 |
-| `OPERATING_UNITS_ENABLED` | Vercel Production | 기수별 운영 화면 사용 | 반드시 `true` 또는 `1` |
 
 `OPERATING_UNIT_CODE_SECRET`은 사용자가 입력하는 입장 코드가 아닙니다. DB에 저장되는 기수별 코드를 보호하기 위한 서버 내부 비밀값입니다.
-
-`OPERATING_UNITS_ENABLED`는 기수별 운영 기능을 켜는 flag입니다. 이 서비스는 기수 관리가 기본이므로 Production에서는 반드시 켜야 합니다.
 
 ## 2. 로컬 준비
 
@@ -122,7 +117,7 @@ node scripts/migrate-data.mjs \
 1. 기존 Production 환경변수 값을 별도 운영 노트에 백업합니다.
 2. Vercel Production `DATABASE_URL`을 새 Supabase 연결 문자열로 설정합니다.
 3. Vercel Production `NEXT_PUBLIC_BASE_URL`을 최종 운영 URL로 설정합니다.
-4. 아래 코드/flag 환경변수를 설정합니다.
+4. 아래 코드/비밀값 환경변수를 설정합니다.
 5. Production redeploy를 실행합니다.
 
 Production 환경변수:
@@ -132,10 +127,7 @@ Production 환경변수:
 | `DATABASE_URL` | 새 Supabase connection string |
 | `NEXT_PUBLIC_BASE_URL` | 최종 운영 URL |
 | `APP_PASSWORD` | 전체관리자 코드 |
-| `ADMIN_PAGE_PASSWORD` | 전역 관리자 코드 |
-| `ANGEL_PAGE_PASSWORD` | 전역 엔젤 코드 |
 | `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 보호용 비밀값 |
-| `OPERATING_UNITS_ENABLED` | `true` 또는 `1` |
 
 ## 6. 오픈 직후 점검
 

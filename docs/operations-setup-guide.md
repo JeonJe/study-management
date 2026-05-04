@@ -11,8 +11,6 @@
 | 최종 서비스 URL | `https://example.com` | `NEXT_PUBLIC_BASE_URL` | 공유 링크 기준이므로 실제 운영 주소로 설정 |
 | 새 DB URL | `postgresql://...` | `DATABASE_URL` | Supabase/Vercel 로그에 노출되지 않게 관리 |
 | 전체관리자 코드 | 별도 전달 | `APP_PASSWORD` | `/admin` 진입과 기본 전역 인증에 사용 |
-| 전역 관리자 코드 | 별도 전달 | `ADMIN_PAGE_PASSWORD` | 레거시/전역 관리자 역할 화면용 |
-| 전역 엔젤 코드 | 별도 전달 | `ANGEL_PAGE_PASSWORD` | 레거시/전역 엔젤 역할 화면용 |
 | 기수별 입장 코드 | 전체관리자 화면에서 설정 | DB 저장 | 사용자가 기수에 들어갈 때 입력 |
 | 기수별 엔젤 코드 | 전체관리자 화면에서 설정 | DB 저장 | 해당 기수 엔젤 화면 접근 |
 | 기수별 관리자 코드 | 전체관리자 화면에서 설정 | DB 저장 | 해당 기수 관리자 화면 접근 |
@@ -23,8 +21,6 @@
 ```mermaid
 flowchart TB
   Env["Vercel 환경 변수"] --> AppPassword["APP_PASSWORD<br/>전체관리자/전역 인증"]
-  Env --> AdminPassword["ADMIN_PAGE_PASSWORD<br/>전역 관리자"]
-  Env --> AngelPassword["ANGEL_PAGE_PASSWORD<br/>전역 엔젤"]
   Env --> DatabaseUrl["DATABASE_URL<br/>운영 DB"]
   Env --> BaseUrl["NEXT_PUBLIC_BASE_URL<br/>공유 링크 기준"]
 
@@ -57,10 +53,7 @@ flowchart TB
 | `DATABASE_URL` | 새 Supabase/Postgres 연결 문자열 |
 | `NEXT_PUBLIC_BASE_URL` | 최종 서비스 URL |
 | `APP_PASSWORD` | 새 전체관리자 코드로 바꿀지 결정 |
-| `ADMIN_PAGE_PASSWORD` | 전역 관리자 코드 유지/변경 결정 |
-| `ANGEL_PAGE_PASSWORD` | 전역 엔젤 코드 유지/변경 결정 |
 | `OPERATING_UNIT_CODE_SECRET` | 기수별 코드 보호용 비밀값. 가능하면 운영에서 고정 |
-| `OPERATING_UNITS_ENABLED` | 기수 관리 사용 시 `true` 또는 `1` |
 
 ## 4. DB URL 교체 전 확인
 
@@ -115,8 +108,6 @@ flowchart LR
 운영 URL: <FINAL_BASE_URL>
 새 DATABASE_URL: <NEW_DATABASE_URL>
 전체관리자 코드(APP_PASSWORD): <APP_PASSWORD>
-전역 관리자 코드(ADMIN_PAGE_PASSWORD): <ADMIN_PAGE_PASSWORD>
-전역 엔젤 코드(ANGEL_PAGE_PASSWORD): <ANGEL_PAGE_PASSWORD>
 기수 코드 보호용 비밀값(OPERATING_UNIT_CODE_SECRET): <SECRET>
 
 해야 할 일:
