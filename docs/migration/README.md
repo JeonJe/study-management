@@ -42,6 +42,8 @@
 
 `OPERATING_UNIT_CODE_SECRET`은 사용자가 입력하는 입장 코드가 아닙니다. DB에 저장되는 기수별 코드를 보호하기 위한 서버 내부 비밀값입니다.
 
+AI 에이전트나 외부 개발자에게 이 절차를 맡길 때는 위 표의 실제 값을 문서에 적지 말고, 실행 중 필요한 순간에 물어보게 하거나 배포 콘솔에 직접 입력하게 합니다. 특히 `DATABASE_URL`, `APP_PASSWORD`, `OPERATING_UNIT_CODE_SECRET`, 기수별 입장/엔젤/관리자 코드는 채팅 로그와 커밋에 남기지 않습니다.
+
 ## 2. 로컬 준비
 
 ```bash
@@ -54,6 +56,8 @@ npm install
 
 ```dotenv
 DATABASE_URL=postgresql://...
+APP_PASSWORD=...
+OPERATING_UNIT_CODE_SECRET=...
 ```
 
 셸 환경변수와 `.env.prod`가 동시에 있으면 스크립트는 `.env.prod` 값을 우선 사용합니다.
@@ -78,9 +82,18 @@ node scripts/apply-schema.mjs --env-file .env.prod --verify-only
 | indexes | SQL 파일의 index가 모두 존재 |
 | RLS | 현재 앱 기준으로 앱 테이블 RLS가 켜져 있지 않음 |
 
-## 4. 데이터 이관
+## 4. 데이터 이관 선택
 
-먼저 dry-run으로 import 대상과 skip 대상을 확인합니다.
+이 단계는 선택입니다. 새 서비스로 빈 데이터베이스에서 오픈할 수 있으면 5단계로 넘어갑니다. 기존 운영 데이터를 가져와야 하는 경우에만 아래 절차를 진행합니다.
+
+AI 에이전트나 외부 개발자는 이 단계에서 먼저 사용자에게 아래를 확인해야 합니다.
+
+| 질문 | 선택지 | 다음 단계 |
+| --- | --- | --- |
+| 기존 데이터를 새 운영 DB로 이관할까요? | 아니오, 빈 DB로 신규 오픈 | 5단계로 이동 |
+| 기존 데이터를 새 운영 DB로 이관할까요? | 예, 기존 데이터 이관 | 백업 SQL/counts 파일을 별도 안전 채널로 전달받고 dry-run 실행 |
+
+이관하기로 결정했다면 먼저 dry-run으로 import 대상과 skip 대상을 확인합니다.
 
 ```bash
 node scripts/migrate-data.mjs \
@@ -89,7 +102,7 @@ node scripts/migrate-data.mjs \
   --dry-run
 ```
 
-문제가 없으면 새 Supabase DB에 데이터를 import합니다.
+dry-run 결과에 문제가 없고 사용자가 이관 진행을 승인하면 새 Supabase DB에 데이터를 import합니다.
 
 ```bash
 node scripts/migrate-data.mjs \
@@ -108,7 +121,7 @@ node scripts/migrate-data.mjs \
 | row count | imported table 전체 `diff=0` |
 | skipped table | 앱 canonical schema에 없는 테이블만 skip |
 
-`count mismatch`가 있으면 Production 전환을 멈추고 백업 파일, schema, skip 목록을 확인합니다.
+`count mismatch`가 있으면 Production 전환을 멈추고 백업 파일, schema, skip 목록을 확인합니다. 사용자가 데이터 이관을 선택하지 않은 경우 이 성공 기준은 적용하지 않습니다.
 
 ## 5. Vercel Production 환경변수 교체
 
@@ -149,6 +162,14 @@ Production redeploy 후 최종 운영 URL에서 확인합니다.
 
 ```bash
 npm test -- src/lib/share-url.test.ts
+```
+
+로컬에서 Playwright 회귀 테스트를 돌릴 때는 아래 값을 `.env.local`에 설정합니다. 테스트는 DB에서 코드를 조회하지 않으므로 값이 없으면 실패합니다.
+
+```dotenv
+E2E_OPERATING_UNIT_SLUG=loop-pak-3
+E2E_OPERATING_UNIT_PASSWORD=기수_입장_코드
+E2E_ADMIN_PASSWORD=기수_관리자_코드
 ```
 
 ## 7. 롤백 기준

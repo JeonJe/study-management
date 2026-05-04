@@ -4,8 +4,8 @@ import {
   BASE_URL,
   REGRESSION_TEST_DATE,
   cohortPath,
-  waitForCohortDateUrl,
 } from "./support/test-config";
+import { submitServerActionAndFollowRedirect } from "./support/server-action";
 
 // cache/performance spec과 날짜 충돌 방지
 const DASHBOARD = cohortPath("study", { date: REGRESSION_TEST_DATE });
@@ -17,12 +17,15 @@ const TEST_LABEL = "R회귀모임";
 
 /** 모임 상세 페이지에서 삭제 수행 (cache-consistency.spec.ts 패턴 차용) */
 async function deleteMeetingFromDetail(page: import("@playwright/test").Page) {
-  page.once("dialog", (d) => d.accept());
   await openManageModal(page);
   await page
     .locator('[role="dialog"] button:has-text("이 모임 삭제")')
     .click();
-  await page.waitForURL(waitForCohortDateUrl("study"), { timeout: 10_000 });
+  const confirmDialog = page.getByRole("dialog", { name: "삭제할까요?" });
+  await expect(confirmDialog).toBeVisible();
+  await submitServerActionAndFollowRedirect(page, () =>
+    confirmDialog.getByRole("button", { name: "확인" }).click(),
+  );
 }
 
 async function openManageModal(page: import("@playwright/test").Page) {
@@ -61,12 +64,19 @@ async function cleanupByLabel(
 async function getMeetingParticipantCount(
   page: import("@playwright/test").Page,
 ): Promise<number> {
-  const totalTerm = page.locator("dt").filter({ hasText: /^총원$/ }).first();
-  await expect(totalTerm).toBeVisible();
-  const text = (await totalTerm.locator("xpath=following-sibling::dd[1]").textContent()) ?? "";
+  const text = await getSummaryValue(page, "전체 확정");
   const match = text.match(/(\d+)명/);
   if (!match) throw new Error(`참여자 수 파싱 실패: ${text}`);
   return Number(match[1]);
+}
+
+async function getSummaryValue(
+  page: import("@playwright/test").Page,
+  label: "확정" | "대기" | "전체 확정",
+): Promise<string> {
+  const term = page.locator("dt").filter({ hasText: new RegExp(`^${label}$`) }).first();
+  await expect(term).toBeVisible();
+  return (await term.locator("xpath=following-sibling::dd[1]").textContent()) ?? "";
 }
 
 // ---------- 회귀 테스트: 모임 흐름 ----------
@@ -103,12 +113,13 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
     // 폼 작성
     await fab.locator('input[name="title"]').fill(`${TEST_LABEL}A`);
     await fab.locator('input[name="location"]').fill("회귀테스트장소");
+    await fab.locator('input[data-leader-input="true"]').fill("이순신");
+    await fab.locator('button[type="button"]:has-text("추가")').click();
 
     // 생성 제출
-    await fab.locator('button[type="submit"]:has-text("생성")').click();
-
-    // 대시보드 리다이렉트 대기
-    await page.waitForURL(waitForCohortDateUrl("study"));
+    await submitServerActionAndFollowRedirect(page, () =>
+      fab.locator('button[type="submit"]:has-text("생성")').click(),
+    );
 
     // 생성된 모임 카드 노출 확인
     await expect(
@@ -134,13 +145,9 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
 
     // 퀵 어사인 섹션에서 미할당 멤버 1명 추가
     // isAssigned=false인 버튼을 찾아 클릭 (추가됨 텍스트가 없는 첫 번째)
-    const assignSection = page.locator("#team-assignment");
-    const firstUnassignedForm = assignSection
-      .locator("form:has(input[name=\"names\"])")
-      .filter({ hasNot: page.locator("button:has-text(\"추가됨\")") })
-      .first();
-    await expect(firstUnassignedForm).toBeVisible();
-    await firstUnassignedForm.locator("button[type=\"submit\"]").first().click();
+    const firstQuickAdd = page.getByRole("complementary").getByRole("button", { name: /추가$/ }).first();
+    await expect(firstQuickAdd).toBeVisible();
+    await submitServerActionAndFollowRedirect(page, () => firstQuickAdd.click());
 
     // 참여자 수 1명 증가 확인 — expect.poll이 통과하면 이미 증명됨, 중복 단언 제거
     await expect
@@ -153,7 +160,7 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
     // 대시보드 카드에서 총참여 수 반영 확인
     await page.goto(DASHBOARD);
     const card = page.locator(`article:has-text("${TEST_LABEL}A")`).first();
-    await expect(card.getByText(`총참여 ${afterCount}`)).toBeVisible();
+    await expect(card.getByText(`전체 확정 ${afterCount}`)).toBeVisible();
   });
 
   // ---- R3: 참석 취소 → 재등록 ----
@@ -164,9 +171,19 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
 
     const beforeCount = await getMeetingParticipantCount(page);
 
-    // 참여자 제거 — dialog를 먼저 등록한 뒤 × 버튼 클릭
-    page.once("dialog", (d) => d.accept());
-    await page.locator('button[aria-label="참여자 제거"]').first().click();
+    // 참여자 제거
+    const participantButton = page
+      .locator("section")
+      .filter({ hasText: "참여자 관리" })
+      .getByRole("button")
+      .filter({ hasNotText: /^추가$/ })
+      .first();
+    await expect(participantButton).toBeVisible();
+    await participantButton.click();
+    await page.getByRole("dialog").getByRole("button", { name: "참여 제외" }).click();
+    await submitServerActionAndFollowRedirect(page, () =>
+      page.getByRole("dialog", { name: "제외할까요?" }).getByRole("button", { name: "확인" }).click(),
+    );
 
     // 참여자 수 -1 확인 — expect.poll이 통과하면 증명됨, 중복 단언 제거
     await expect
@@ -176,13 +193,9 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
       .toBe(beforeCount - 1);
 
     // 동일 멤버 재등록 — 이전에 제거된 슬롯이 다시 미할당 상태가 됨
-    const assignSection = page.locator("#team-assignment");
-    const firstUnassignedForm = assignSection
-      .locator("form:has(input[name=\"names\"])")
-      .filter({ hasNot: page.locator("button:has-text(\"추가됨\")") })
-      .first();
-    await expect(firstUnassignedForm).toBeVisible();
-    await firstUnassignedForm.locator("button[type=\"submit\"]").first().click();
+    const firstQuickAdd = page.getByRole("complementary").getByRole("button", { name: /추가$/ }).first();
+    await expect(firstQuickAdd).toBeVisible();
+    await submitServerActionAndFollowRedirect(page, () => firstQuickAdd.click());
 
     // 참여자 수 원복 확인 — expect.poll이 통과하면 증명됨, 중복 단언 제거
     await expect
@@ -194,7 +207,7 @@ test.describe.serial("회귀: 모임 생성 → 참석 → 취소 → 재등록"
     // 대시보드 카드 총참여 수 정합성 확인
     await page.goto(DASHBOARD);
     const card = page.locator(`article:has-text("${TEST_LABEL}A")`).first();
-    await expect(card.getByText(`총참여 ${beforeCount}`)).toBeVisible();
+    await expect(card.getByText(`전체 확정 ${beforeCount}`)).toBeVisible();
   });
 
   // ---- R4: 모임 삭제 → 목록 제거 ----
@@ -238,15 +251,12 @@ test.describe.serial("회귀: 정원 초과 대기 → 승격", () => {
     await fab.locator("summary").click();
     await fab.locator('input[name="title"]').fill(WAITLIST_LABEL);
     await fab.locator('input[name="location"]').fill("회귀테스트장소");
-    await fab.locator("form").evaluate((form) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = "capacity";
-      input.value = "1";
-      form.appendChild(input);
-    });
-    await fab.locator('button[type="submit"]:has-text("생성")').click();
-    await page.waitForURL(waitForCohortDateUrl("study"));
+    await fab.locator('input[name="capacity"]').fill("1");
+    await fab.locator('input[data-leader-input="true"]').fill("정약용");
+    await fab.locator('button[type="button"]:has-text("추가")').click();
+    await submitServerActionAndFollowRedirect(page, () =>
+      fab.locator('button[type="submit"]:has-text("생성")').click(),
+    );
 
     const link = page
       .locator(`a[aria-label="${WAITLIST_LABEL} 상세 보기"]`)
@@ -254,21 +264,33 @@ test.describe.serial("회귀: 정원 초과 대기 → 승격", () => {
     meetingDetailUrl = (await link.getAttribute("href")) ?? "";
     expect(meetingDetailUrl).toContain("/meetings/");
     await page.goto(meetingDetailUrl);
-    await expect(page.getByText("확정 0/1 · 대기 0")).toBeVisible();
+    await expect.poll(async () => getSummaryValue(page, "확정")).toBe("0/1명");
+    await expect.poll(async () => getSummaryValue(page, "대기")).toBe("0명");
 
-    const manualAdd = page.locator('form:has(input[name="mutationSource"][value="manual-add"])');
-    await manualAdd.locator('input[name="names"]').fill("이황, 이이");
-    await manualAdd.locator('button[type="submit"]:has-text("추가")').click();
-    await expect(page.getByText("확정 1/1 · 대기 1")).toBeVisible();
+    await page.getByRole("button", { name: "추가" }).first().click();
+    const manualAddDialog = page.getByRole("dialog", { name: "이름으로 추가" });
+    await manualAddDialog.locator('textarea[name="names"]').fill("이황, 이이");
+    await submitServerActionAndFollowRedirect(page, () =>
+      manualAddDialog.getByRole("button", { name: "추가" }).click(),
+    );
+    await expect.poll(async () => getSummaryValue(page, "확정")).toBe("1/1명");
+    await expect.poll(async () => getSummaryValue(page, "대기")).toBe("1명");
     await expect(page.getByText("이이")).toBeVisible();
 
-    page.once("dialog", (d) => d.accept());
-    await page.locator('button[aria-label="참여자 제거"]').first().click();
-    await expect(page.getByText("확정 0/1 · 대기 1")).toBeVisible();
+    await page.getByRole("button", { name: "이황" }).click();
+    await submitServerActionAndFollowRedirect(page, () =>
+      page.getByRole("dialog", { name: "이황" }).getByRole("button", { name: "대기로 전환" }).click(),
+    );
+    await expect.poll(async () => getSummaryValue(page, "확정")).toBe("0/1명");
+    await expect.poll(async () => getSummaryValue(page, "대기")).toBe("2명");
 
-    await page.locator('li:has-text("이이") button:has-text("승격")').click();
-    await expect(page.getByText("확정 1/1 · 대기 0")).toBeVisible();
-    await expect(page.locator("section").filter({ hasText: "대기 인원" }).getByText("대기 중인 인원이 없습니다.")).toBeVisible();
+    await submitServerActionAndFollowRedirect(page, () =>
+      page.locator('li:has-text("이이") button:has-text("확정")').click(),
+    );
+
+    await expect.poll(async () => getSummaryValue(page, "확정")).toBe("1/1명");
+    await expect.poll(async () => getSummaryValue(page, "대기")).toBe("1명");
+    await expect(page.locator("section").filter({ hasText: "대기 인원" }).getByText("이황")).toBeVisible();
 
     await deleteMeetingFromDetail(page);
     await page.goto(DASHBOARD);

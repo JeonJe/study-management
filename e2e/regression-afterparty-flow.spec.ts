@@ -4,8 +4,8 @@ import {
   BASE_URL,
   REGRESSION_TEST_DATE,
   cohortPath,
-  waitForCohortDateUrl,
 } from "./support/test-config";
+import { submitServerActionAndFollowRedirect } from "./support/server-action";
 
 // cache/performance spec과 날짜 충돌 방지
 const AFTERPARTY_PAGE = cohortPath("afterparty", { date: REGRESSION_TEST_DATE });
@@ -21,15 +21,19 @@ const TEST_PARTICIPANT = "유관순";
 async function deleteAfterpartyFromDetail(
   page: import("@playwright/test").Page,
 ) {
-  page.once("dialog", (d) => d.accept());
-  await page.locator('button:has-text("수정 관리")').click();
-  await page.locator('[role="dialog"]').waitFor();
-  await page
-    .locator('[role="dialog"] button:has-text("이 뒷풀이 삭제")')
-    .click();
-  await page.waitForURL(waitForCohortDateUrl("afterparty"), {
-    timeout: 10_000,
-  });
+  const button = page.getByRole("button", { name: "수정 관리" });
+  await expect(button).toBeVisible();
+  await expect(async () => {
+    await button.click();
+    await expect(page.getByRole("dialog").filter({ hasText: "수정 관리" })).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+
+  await page.getByRole("dialog").filter({ hasText: "수정 관리" }).getByRole("button", { name: "이 뒷풀이 삭제" }).click();
+  const confirmDialog = page.getByRole("dialog", { name: "삭제할까요?" });
+  await expect(confirmDialog).toBeVisible();
+  await submitServerActionAndFollowRedirect(page, () =>
+    confirmDialog.getByRole("button", { name: "확인" }).click(),
+  );
 }
 
 /**
@@ -105,10 +109,9 @@ test.describe.serial("회귀: 뒷풀이 생성 → 참여 → 정산 → 삭제"
     await fab.locator('input[name="location"]').fill("회귀뒷풀이장소");
 
     // 생성 제출
-    await fab.locator('button[type="submit"]:has-text("생성")').click();
-
-    // 뒷풀이 목록 리다이렉트 대기
-    await page.waitForURL(waitForCohortDateUrl("afterparty"));
+    await submitServerActionAndFollowRedirect(page, () =>
+      fab.locator('button[type="submit"]:has-text("생성")').click(),
+    );
 
     // 생성된 뒷풀이 카드 노출 확인
     await expect(

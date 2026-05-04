@@ -3,6 +3,16 @@ import path from "node:path";
 export const TEST_OPERATING_UNIT_SLUG =
   process.env.E2E_OPERATING_UNIT_SLUG?.trim() || "loop-pak-3";
 
+export const E2E_OPERATING_UNIT_PASSWORD =
+  process.env.E2E_OPERATING_UNIT_PASSWORD?.trim() ||
+  process.env.TEST_OPERATING_UNIT_ACCESS_CODE?.trim() ||
+  "";
+
+export const E2E_ADMIN_PASSWORD =
+  process.env.E2E_ADMIN_PASSWORD?.trim() ||
+  process.env.TEST_OPERATING_UNIT_ADMIN_CODE?.trim() ||
+  "";
+
 export const CACHE_TEST_DATE = "2026-03-01";
 export const REGRESSION_TEST_DATE = "2026-09-01";
 export const DEFAULT_HISTORY_START_DATE = "2026-04-01";
