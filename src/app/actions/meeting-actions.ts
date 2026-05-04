@@ -27,7 +27,6 @@ import {
   type DashboardState,
   meetingManagePath,
   mutationRedirectPath,
-  parseDelimitedNames,
   parseDelimitedPeople,
   parseDirectParticipantNames,
   participantFeedbackPath,
@@ -200,10 +199,7 @@ export async function bulkCreateRsvpsAction(formData: FormData): Promise<void> {
   await requireUnitAuthOrRedirect(targetUnitSlug, fallbackPath);
   const meetingLabel = note || (await resolveMeetingLabel(meetingId));
 
-  const names =
-    feedbackSource === "manual"
-      ? parseDirectParticipantNames(namesRaw)
-      : parseDelimitedNames(namesRaw);
+  const names = parseDirectParticipantNames(namesRaw);
   if (names.length === 0) {
     redirect(participantFeedbackPath(fallbackPath, "invalid-input", feedbackSource, namesRaw));
   }

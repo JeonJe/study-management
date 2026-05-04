@@ -50,6 +50,7 @@
 | `e2e/regression-meeting-flow.spec.ts` | 모임 생성, 참석, 취소, 재등록, 대기 승격 |
 | `e2e/regression-afterparty-flow.spec.ts` | 뒷풀이 생성, 참여자 추가, 정산 토글, 삭제 |
 | `e2e/regression-history-dashboard.spec.ts` | 히스토리 기간 변경, 팀/멤버 탭 이동 |
+| `e2e/regression-critical-path.spec.ts` | 새 운영 단위 생성부터 운영진/팀/보고/스터디/루프팩/뒷풀이/통계/삭제까지 프로덕션 오픈 핵심 경로. 기본 skip, `RUN_CRITICAL_PATH_E2E=1` 단독 실행 |
 | `e2e/performance.spec.ts` | 주요 화면 TTFB와 mutation 후 응답 시간 |
 
 ## E2E 설정

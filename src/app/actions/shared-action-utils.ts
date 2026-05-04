@@ -63,21 +63,6 @@ function normalizeMemberName(raw: string): string {
     .trim();
 }
 
-export function parseDelimitedNames(raw: string): string[] {
-  const fromDelimiter = raw
-    .split(/[\n,;<>|/，]+/)
-    .map((chunk) => normalizeMemberName(chunk))
-    .filter(Boolean)
-    .filter((name) => !PARTICIPANT_INPUT_STOP_WORDS.has(name.toLowerCase()));
-
-  const fromText = (raw.match(/[가-힣A-Za-z]{1,}(?:\s*\([^)]*\))?/g) ?? [])
-    .map((chunk) => normalizeMemberName(chunk))
-    .filter(Boolean)
-    .filter((name) => !PARTICIPANT_INPUT_STOP_WORDS.has(name.toLowerCase()));
-
-  return Array.from(new Set([...fromDelimiter, ...fromText]));
-}
-
 export function parseDelimitedPeople(raw: string): string[] {
   const unique = new Set<string>();
   const people: string[] = [];

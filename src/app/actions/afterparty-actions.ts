@@ -24,7 +24,6 @@ import {
   afterpartyPath,
   type DashboardState,
   mutationRedirectPath,
-  parseDelimitedNames,
   parseDirectParticipantNames,
   participantFeedbackPath,
   participantFeedbackSourceFromMutation,
@@ -93,10 +92,7 @@ export async function bulkCreateAfterpartyParticipantsAction(formData: FormData)
   const namesRaw = textFrom(formData, "names");
   const roleRaw = textFrom(formData, "role").trim();
   const fallbackPath = returnPath ?? (afterpartyId ? `/afterparty/${afterpartyId}` : afterpartyPath({ date }));
-  const names =
-    feedbackSource === "manual"
-      ? parseDirectParticipantNames(namesRaw)
-      : parseDelimitedNames(namesRaw);
+  const names = parseDirectParticipantNames(namesRaw);
 
   if (!afterpartyId || names.length === 0) {
     redirect(participantFeedbackPath(fallbackPath, "invalid-input", feedbackSource, namesRaw));

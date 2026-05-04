@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import {
+  findEntryOperatingUnit,
   LoginScreen,
   safeListEntryOperatingUnits,
 } from "@/app/meetup-dashboard";
@@ -33,6 +34,9 @@ export default async function CohortEntryPage({
   }
 
   const units = await safeListEntryOperatingUnits();
+  if (!findEntryOperatingUnit(units, unit)) {
+    redirect("/?entry=unit-not-found");
+  }
 
   return (
     <LoginScreen

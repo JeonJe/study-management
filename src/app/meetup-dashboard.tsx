@@ -133,7 +133,14 @@ export async function safeListEntryOperatingUnits(): Promise<EntryOperatingUnit[
   ];
 }
 
-type EntryOperatingUnit = Pick<OperatingUnit, "slug" | "name" | "description">;
+export type EntryOperatingUnit = Pick<OperatingUnit, "slug" | "name" | "description">;
+
+export function findEntryOperatingUnit(
+  units: EntryOperatingUnit[],
+  selectedUnitSlug: string
+): EntryOperatingUnit | null {
+  return units.find((unit) => unit.slug === selectedUnitSlug) ?? null;
+}
 
 function AdminLoginModal({ adminAuthStatus }: { adminAuthStatus: string }) {
   const adminAuthMessage =
@@ -434,11 +441,18 @@ function UnitSelectionScreen({
   units,
   basePath,
   adminAuthStatus,
+  entryStatus,
 }: {
   units: EntryOperatingUnit[];
   basePath: "/" | "/loop-pak";
   adminAuthStatus: string;
+  entryStatus: string;
 }) {
+  const entryMessage =
+    entryStatus === "unit-not-found"
+      ? "요청한 입장 페이지를 찾을 수 없습니다. 입장 가능한 항목을 다시 선택해 주세요."
+      : "";
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 sm:px-6 lg:px-8">
       <style>{`
@@ -493,6 +507,15 @@ function UnitSelectionScreen({
             전체관리자
           </Link>
         </div>
+        {entryMessage ? (
+          <div
+            className="mb-4 rounded-xl border px-4 py-3 text-sm font-bold"
+            style={{ borderColor: "#fecaca", backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
+            role="alert"
+          >
+            {entryMessage}
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {units.map((unit) => {
@@ -848,6 +871,7 @@ export async function MeetupDashboard({
 }: MeetupDashboardProps) {
   const params = await searchParams;
   const adminAuthStatus = singleParam(params.adminAuth);
+  const entryStatus = singleParam(params.entry);
   const requestDate = singleParam(params.date);
   const selectedUnitSlug = singleParam(params.unit);
 
@@ -858,6 +882,7 @@ export async function MeetupDashboard({
         units={units}
         basePath={basePath}
         adminAuthStatus={adminAuthStatus}
+        entryStatus={entryStatus}
       />
     );
   }
