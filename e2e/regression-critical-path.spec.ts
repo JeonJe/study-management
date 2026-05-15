@@ -294,6 +294,27 @@ async function quickAddMeetingParticipant(page: Page, detailUrl: string, name: s
   await expect(page.getByRole("complementary").getByRole("button").filter({ hasText: name }).filter({ hasText: "추가됨" }).first()).toBeVisible();
 }
 
+async function excludeMeetingParticipant(page: Page, detailUrl: string, name: string): Promise<void> {
+  await page.goto(detailUrl);
+  const beforeCount = await getMeetingParticipantCount(page);
+  const chip = page
+    .locator("section")
+    .filter({ hasText: "참여자 관리" })
+    .getByRole("button")
+    .filter({ hasText: name })
+    .first();
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await page.getByRole("dialog").getByRole("button", { name: "참여 제외" }).click();
+  await submitServerActionAndFollowRedirect(page, () =>
+    page.getByRole("dialog", { name: "제외할까요?" }).getByRole("button", { name: "확인" }).click()
+  );
+  await expect.poll(async () => getMeetingParticipantCount(page), { timeout: 10_000 }).toBe(beforeCount - 1);
+  await expect(
+    page.getByRole("complementary").getByRole("button").filter({ hasText: name }).filter({ hasText: "추가" }).first()
+  ).toBeVisible();
+}
+
 async function updateMeeting(page: Page, detailUrl: string, title: string): Promise<void> {
   await page.goto(detailUrl);
   await page.getByRole("button", { name: "수정 관리" }).click();
@@ -420,8 +441,10 @@ test.describe.serial("수동 회귀: 새 운영 단위 크리티컬 패스", () 
         return createdCycleId;
       });
 
-      const studyUrl = await test.step("CP-06 스터디 모임을 만들고 참여자 반영과 정보 수정을 확인한다", async () => {
+      const studyUrl = await test.step("CP-06 스터디 모임을 만들고 참여자 반영·제외·정보 수정을 확인한다", async () => {
         const createdStudyUrl = await createMeeting(page, "study", NAMES.studyTitle);
+        await quickAddMeetingParticipant(page, createdStudyUrl, NAMES.memberA);
+        await excludeMeetingParticipant(page, createdStudyUrl, NAMES.memberA);
         await quickAddMeetingParticipant(page, createdStudyUrl, NAMES.memberA);
         await updateMeeting(page, createdStudyUrl, NAMES.studyTitleEdited);
         return createdStudyUrl;
