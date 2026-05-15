@@ -33,7 +33,6 @@ import {
   participantFeedbackSourceFromMutation,
   revalidateMeetupViews,
   requireUnitAuthOrRedirect,
-  requireUnitRoleOrRedirect,
   resolveMeetingLabel,
   resolveMeetingUnitOrRedirect,
   resolveParticipantRoleEntries,
@@ -129,7 +128,7 @@ export async function deleteRsvpAction(formData: FormData): Promise<void> {
 
   const fallbackPath = returnPath ?? dashboardPath({ date, keyword });
   const targetUnitSlug = await resolveMeetingUnitOrRedirect(meetingId, fallbackPath);
-  await requireUnitRoleOrRedirect(targetUnitSlug, ["admin", "angel"], fallbackPath);
+  await requireUnitAuthOrRedirect(targetUnitSlug, fallbackPath);
 
   await deleteRsvp(rsvpId, meetingId, targetUnitSlug);
 
@@ -148,7 +147,7 @@ export async function promoteWaitlistedRsvpAction(formData: FormData): Promise<v
   }
 
   const targetUnitSlug = await resolveMeetingUnitOrRedirect(meetingId, fallbackPath);
-  await requireUnitRoleOrRedirect(targetUnitSlug, ["admin", "angel"], fallbackPath);
+  await requireUnitAuthOrRedirect(targetUnitSlug, fallbackPath);
 
   const promoted = await promoteWaitlistedRsvp(meetingId, rsvpId, targetUnitSlug);
   if (!promoted) {
@@ -170,7 +169,7 @@ export async function moveRsvpToWaitlistAction(formData: FormData): Promise<void
   }
 
   const targetUnitSlug = await resolveMeetingUnitOrRedirect(meetingId, fallbackPath);
-  await requireUnitRoleOrRedirect(targetUnitSlug, ["admin", "angel"], fallbackPath);
+  await requireUnitAuthOrRedirect(targetUnitSlug, fallbackPath);
 
   await moveRsvpToWaitlist(meetingId, rsvpId, targetUnitSlug);
 
